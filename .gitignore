@@ -1,0 +1,13 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.local
+
+# Build output
+tmp/
+*.exe
+*.test
+*.out
