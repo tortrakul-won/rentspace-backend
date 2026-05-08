@@ -107,11 +107,10 @@ type SpaceResponse struct {
 // --- Bookings ---
 
 type CreateBookingRequest struct {
-	SpaceID     string `json:"space_id"`
-	StartTime   string `json:"start_time"`
-	EndTime     string `json:"end_time"`
-	TotalPrice  int32  `json:"total_price"`
-	PlatformFee int32  `json:"platform_fee"`
+	SpaceID   string `json:"space_id"`
+	StartTime string `json:"start_time"`
+	EndTime   string `json:"end_time"`
+	// total_price and platform_fee are server-calculated — not accepted from the client
 }
 
 type BookingResponse struct {

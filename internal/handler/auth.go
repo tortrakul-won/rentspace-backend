@@ -41,6 +41,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "profile_role must be owner or renter")
 		return
 	}
+	if len(body.Password) < 8 {
+		Error(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+	// bcrypt silently truncates at 72 bytes — enforce the limit explicitly to prevent
+	// two different long passwords hashing identically, and block CPU-exhaustion via huge inputs
+	if len([]byte(body.Password)) > 72 {
+		Error(w, http.StatusBadRequest, "password must be 72 characters or fewer")
+		return
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {

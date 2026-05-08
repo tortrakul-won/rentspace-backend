@@ -134,7 +134,7 @@ func (h *SpacesHandler) Deactivate(w http.ResponseWriter, r *http.Request) {
 		OwnerID:  claims.ProfileID,
 	})
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to deactivate space")
+		Error(w, http.StatusNotFound, "space not found or not owned by you")
 		return
 	}
 	JSON(w, http.StatusOK, space)

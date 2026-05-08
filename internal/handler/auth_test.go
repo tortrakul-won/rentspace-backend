@@ -93,7 +93,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 		},
 	}
 	body, _ := json.Marshal(RegisterRequest{
-		Email: "dup@example.com", Password: "pw", FullName: "n", ProfileRole: "renter", DisplayName: "p",
+		Email: "dup@example.com", Password: "password", FullName: "n", ProfileRole: "renter", DisplayName: "p",
 	})
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
