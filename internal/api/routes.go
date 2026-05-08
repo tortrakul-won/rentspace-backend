@@ -12,7 +12,7 @@ import (
 	"rentspace/backend/internal/store"
 )
 
-func NewRouter(q store.Querier, jwtSecret string) http.Handler {
+func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -20,7 +20,7 @@ func NewRouter(q store.Querier, jwtSecret string) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RequestSize(1 * 1024 * 1024)) // 1MB max body size
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"http://localhost:5173"},
+		AllowedOrigins: corsOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"},
 	}))

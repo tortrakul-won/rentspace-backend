@@ -89,7 +89,7 @@ func TestRegister_InvalidRole(t *testing.T) {
 func TestRegister_DuplicateEmail(t *testing.T) {
 	q := &mockStore{
 		createUser: func(_ context.Context, _ store.CreateUserParams) (store.User, error) {
-			return store.User{}, errors.New("duplicate")
+			return store.User{}, pgUniqueErr()
 		},
 	}
 	body, _ := json.Marshal(RegisterRequest{

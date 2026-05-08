@@ -11,17 +11,17 @@ import (
 )
 
 type SpacesHandler struct {
-	q store.Querier
+	q store.Store
 }
 
-func NewSpacesHandler(q store.Querier) *SpacesHandler {
+func NewSpacesHandler(q store.Store) *SpacesHandler {
 	return &SpacesHandler{q: q}
 }
 
 func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
 	spaces, err := h.q.ListSpaces(r.Context())
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to fetch spaces")
+		ServerError(w, r, err)
 		return
 	}
 	JSON(w, http.StatusOK, spaces)
@@ -69,7 +69,7 @@ func (h *SpacesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Amenities:   body.Amenities,
 	})
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to create space")
+		ServerError(w, r, err)
 		return
 	}
 	JSON(w, http.StatusCreated, space)

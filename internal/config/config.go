@@ -3,12 +3,14 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	JWTSecret   string
+	Port           string
+	DatabaseURL    string
+	JWTSecret      string
+	CORSOrigins    []string
 }
 
 func Load() (*Config, error) {
@@ -16,6 +18,8 @@ func Load() (*Config, error) {
 		Port:        getEnv("SERVER_PORT", "8080"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   os.Getenv("JWT_SECRET"),
+		// TODO: remove fallback before production — CORS_ALLOWED_ORIGINS should be required
+		CORSOrigins: parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
@@ -31,4 +35,14 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func parseCORSOrigins(raw string) []string {
+	var origins []string
+	for _, o := range strings.Split(raw, ",") {
+		if s := strings.TrimSpace(o); s != "" {
+			origins = append(origins, s)
+		}
+	}
+	return origins
 }

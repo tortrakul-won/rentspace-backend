@@ -15,12 +15,12 @@ import (
 )
 
 type AuthHandler struct {
-	q         store.Querier
+	q         store.Store
 	jwtSecret string
 }
 
 // NewAuthHandler stores the database queries and JWT secret so all auth methods can use them.
-func NewAuthHandler(q store.Querier, jwtSecret string) *AuthHandler {
+func NewAuthHandler(q store.Store, jwtSecret string) *AuthHandler {
 	return &AuthHandler{q: q, jwtSecret: jwtSecret}
 }
 
@@ -54,34 +54,41 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to process password")
+		ServerError(w, r, err)
 		return
 	}
 
-	user, err := h.q.CreateUser(r.Context(), store.CreateUserParams{
-		Email:        body.Email,
-		PasswordHash: string(hash),
-		FullName:     body.FullName,
-		Phone:        sql.NullString{String: body.Phone, Valid: body.Phone != ""},
-	})
-	if err != nil {
-		Error(w, http.StatusConflict, "email already in use")
-		return
-	}
-
-	profile, err := h.q.CreateProfile(r.Context(), store.CreateProfileParams{
-		UserID:      user.ID,
-		Role:        store.ProfileRole(body.ProfileRole),
-		DisplayName: body.DisplayName,
-	})
-	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to create profile")
+	var user store.User
+	var profile store.Profile
+	if err := h.q.ExecTx(r.Context(), func(q store.Querier) error {
+		var err error
+		user, err = q.CreateUser(r.Context(), store.CreateUserParams{
+			Email:        body.Email,
+			PasswordHash: string(hash),
+			FullName:     body.FullName,
+			Phone:        sql.NullString{String: body.Phone, Valid: body.Phone != ""},
+		})
+		if err != nil {
+			return err
+		}
+		profile, err = q.CreateProfile(r.Context(), store.CreateProfileParams{
+			UserID:      user.ID,
+			Role:        store.ProfileRole(body.ProfileRole),
+			DisplayName: body.DisplayName,
+		})
+		return err
+	}); err != nil {
+		if isUniqueViolation(err) {
+			Error(w, http.StatusConflict, "email already in use")
+			return
+		}
+		ServerError(w, r, err)
 		return
 	}
 
 	token, err := h.signToken(user.ID, profile.ID, string(profile.Role))
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to sign token")
+		ServerError(w, r, err)
 		return
 	}
 
@@ -114,14 +121,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	profiles, err := h.q.GetProfilesByUserID(r.Context(), user.ID)
 	if err != nil || len(profiles) == 0 {
-		Error(w, http.StatusInternalServerError, "failed to load profiles")
+		ServerError(w, r, err)
 		return
 	}
 
 	active := profiles[0]
 	token, err := h.signToken(user.ID, active.ID, string(active.Role))
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to sign token")
+		ServerError(w, r, err)
 		return
 	}
 
@@ -167,7 +174,7 @@ func (h *AuthHandler) SwitchProfile(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.signToken(claims.UserID, profile.ID, string(profile.Role))
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to sign token")
+		ServerError(w, r, err)
 		return
 	}
 
@@ -221,7 +228,7 @@ func (h *AuthHandler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 	}
 	profiles, err := h.q.GetProfilesByUserID(r.Context(), user.ID)
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to load profiles")
+		ServerError(w, r, err)
 		return
 	}
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"math"
 	"net/http"
 	"time"
@@ -12,11 +13,13 @@ import (
 	"rentspace/backend/internal/store"
 )
 
+var errTimeSlotTaken = errors.New("time slot taken")
+
 type BookingsHandler struct {
-	q store.Querier
+	q store.Store
 }
 
-func NewBookingsHandler(q store.Querier) *BookingsHandler {
+func NewBookingsHandler(q store.Store) *BookingsHandler {
 	return &BookingsHandler{q: q}
 }
 
@@ -78,30 +81,35 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	totalPrice := calculatePrice(hours, space.HourlyRate, space.DailyRate, space.MinHours)
 	platformFee := int32(0) // TODO: define platform fee rate in config
 
-	count, err := h.q.CheckOverlappingBookings(r.Context(), store.CheckOverlappingBookingsParams{
-		SpaceID:   spaceID,
-		StartTime: startTime,
-		EndTime:   endTime,
-	})
-	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to check availability")
-		return
-	}
-	if count > 0 {
-		Error(w, http.StatusConflict, "space is not available for the requested time")
-		return
-	}
-
-	booking, err := h.q.CreateBooking(r.Context(), store.CreateBookingParams{
-		SpaceID:     spaceID,
-		RenterID:    claims.ProfileID,
-		StartTime:   startTime,
-		EndTime:     endTime,
-		TotalPrice:  totalPrice,
-		PlatformFee: platformFee,
-	})
-	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to create booking")
+	// overlap check + insert are atomic: two concurrent requests cannot both pass
+	var booking store.Booking
+	if err := h.q.ExecTx(r.Context(), func(q store.Querier) error {
+		count, err := q.CheckOverlappingBookings(r.Context(), store.CheckOverlappingBookingsParams{
+			SpaceID:   spaceID,
+			StartTime: startTime,
+			EndTime:   endTime,
+		})
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return errTimeSlotTaken
+		}
+		booking, err = q.CreateBooking(r.Context(), store.CreateBookingParams{
+			SpaceID:     spaceID,
+			RenterID:    claims.ProfileID,
+			StartTime:   startTime,
+			EndTime:     endTime,
+			TotalPrice:  totalPrice,
+			PlatformFee: platformFee,
+		})
+		return err
+	}); err != nil {
+		if errors.Is(err, errTimeSlotTaken) {
+			Error(w, http.StatusConflict, "space is not available for the requested time")
+			return
+		}
+		ServerError(w, r, err)
 		return
 	}
 	JSON(w, http.StatusCreated, booking)
@@ -165,7 +173,7 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 
 	bookings, err := h.q.ListBookingsBySpace(r.Context(), spaceID)
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to fetch bookings")
+		ServerError(w, r, err)
 		return
 	}
 	JSON(w, http.StatusOK, bookings)
@@ -224,7 +232,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		Status: body.Status,
 	})
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to update booking status")
+		ServerError(w, r, err)
 		return
 	}
 	JSON(w, http.StatusOK, updated)

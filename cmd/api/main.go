@@ -30,8 +30,8 @@ func main() {
 	}
 	defer db.Close()
 
-	queries := store.New(db)
-	router := api.NewRouter(queries, cfg.JWTSecret)
+	queries := store.NewStore(db)
+	router := api.NewRouter(queries, cfg.JWTSecret, cfg.CORSOrigins)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,

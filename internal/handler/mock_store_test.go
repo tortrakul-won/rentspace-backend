@@ -7,14 +7,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
 	"rentspace/backend/internal/store"
 )
 
-// mockStore implements store.Querier for use in handler tests.
+// pgUniqueErr returns a Postgres unique-constraint error (23505) for use in tests.
+func pgUniqueErr() error {
+	return &pgconn.PgError{Code: "23505"}
+}
+
+// mockStore implements store.Store for use in handler tests.
 // Each field is a function so individual tests can override only what they need.
 type mockStore struct {
+	execTx func(ctx context.Context, fn func(store.Querier) error) error
 	createUser               func(ctx context.Context, arg store.CreateUserParams) (store.User, error)
 	getUserByEmail           func(ctx context.Context, email string) (store.User, error)
 	getUserByID              func(ctx context.Context, id uuid.UUID) (store.User, error)
@@ -35,6 +42,13 @@ type mockStore struct {
 	listBookingsBySpace      func(ctx context.Context, spaceID uuid.UUID) ([]store.Booking, error)
 	updateBookingStatus      func(ctx context.Context, arg store.UpdateBookingStatusParams) (store.Booking, error)
 	checkOverlappingBookings func(ctx context.Context, arg store.CheckOverlappingBookingsParams) (int64, error)
+}
+
+func (m *mockStore) ExecTx(ctx context.Context, fn func(store.Querier) error) error {
+	if m.execTx != nil {
+		return m.execTx(ctx, fn)
+	}
+	return fn(m) // no real transaction in tests; pass the mock as the querier
 }
 
 func (m *mockStore) CreateUser(ctx context.Context, arg store.CreateUserParams) (store.User, error) {
