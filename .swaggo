@@ -1,4 +1,0 @@
-replace database/sql.NullString string
-replace database/sql.NullBool bool
-replace database/sql.NullInt64 integer
-replace database/sql.NullFloat64 number

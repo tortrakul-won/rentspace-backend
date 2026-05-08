@@ -1,9 +1,3 @@
-// @title           RentSpace API
-// @version         1.0
-// @description     Short-term space rental marketplace API for Thailand
-// @host            localhost:8080
-// @BasePath        /api/v1
-
 package main
 
 import (
@@ -15,7 +9,6 @@ import (
 	"rentspace/backend/internal/api"
 	"rentspace/backend/internal/config"
 	"rentspace/backend/internal/store"
-	_ "rentspace/backend/docs"
 )
 
 func main() {

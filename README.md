@@ -21,34 +21,37 @@ rentspace-backend/
 ├── internal/
 │   ├── config/
 │   │   └── config.go            reads SERVER_PORT, DATABASE_URL, JWT_SECRET from env
+│   ├── middleware/
+│   │   └── auth.go              JWT validation middleware + claims context helpers
 │   ├── store/
 │   │   ├── connect.go           opens *sql.DB connection via pgx stdlib driver
 │   │   ├── db.go                sqlc-generated DBTX interface (do not edit)
-│   │   ├── models.go            sqlc-generated structs: Space, Booking, User (do not edit)
+│   │   ├── models.go            sqlc-generated structs: User, Profile, Space, Booking (do not edit)
 │   │   ├── querier.go           sqlc-generated query interface (do not edit)
+│   │   ├── users.sql.go         sqlc-generated user queries (do not edit)
+│   │   ├── profiles.sql.go      sqlc-generated profile queries (do not edit)
 │   │   ├── spaces.sql.go        sqlc-generated space queries (do not edit)
-│   │   ├── bookings.sql.go      sqlc-generated booking queries (do not edit)
-│   │   └── users.sql.go         sqlc-generated user queries (do not edit)
+│   │   └── bookings.sql.go      sqlc-generated booking queries (do not edit)
 │   ├── handler/
-│   │   ├── dto.go               API request/response structs (used for swagger + decoding)
+│   │   ├── dto.go               all API request/response structs
+│   │   ├── auth.go              register, login, switch-profile, add-profile, current-user
 │   │   ├── health.go            GET /health
 │   │   ├── spaces.go            spaces CRUD handlers
 │   │   ├── bookings.go          bookings handlers + overlap check
 │   │   ├── respond.go           JSON() and Error() response helpers
 │   │   └── util.go              UUID parsing helper
 │   └── api/
-│       └── routes.go            chi router — all routes registered here, CORS, middleware
+│       └── routes.go            all routes — see file for per-endpoint comments
 ├── db/
 │   ├── migrations/
-│   │   ├── 000001_init.up.sql   creates users, spaces, bookings tables + enums + indexes
+│   │   ├── 000001_init.up.sql   creates users, profiles, spaces, bookings tables
 │   │   └── 000001_init.down.sql drops all tables and types
 │   └── queries/
-│       ├── spaces.sql           SQL source for sqlc (spaces queries)
-│       ├── bookings.sql         SQL source for sqlc (bookings queries)
-│       └── users.sql            SQL source for sqlc (user queries)
-├── docs/                        swagger-generated files (do not edit)
+│       ├── users.sql            SQL source for sqlc (user queries)
+│       ├── profiles.sql         SQL source for sqlc (profile queries)
+│       ├── spaces.sql           SQL source for sqlc (space queries)
+│       └── bookings.sql         SQL source for sqlc (booking queries)
 ├── sqlc.yaml                    sqlc config — maps queries → generated Go code
-├── .swaggo                      swag type overrides (maps sql.Null* → primitives)
 └── .env.example                 template for required environment variables
 ```
 
@@ -74,15 +77,6 @@ go run ./cmd/api     # http://localhost:8080
 
 ---
 
-## API Docs
-
-Swagger UI is available at:
-```
-http://localhost:8080/swagger/index.html
-```
-
----
-
 ## Environment Variables
 
 | Variable | Description |
@@ -95,15 +89,44 @@ http://localhost:8080/swagger/index.html
 
 ## API Overview
 
+All protected routes require `Authorization: Bearer <token>`.
+
+### Auth (public)
+
 | Method | Path | Description |
 |---|---|---|
-| GET | `/health` | Health check |
+| POST | `/api/v1/auth/register` | Create account + first profile, returns JWT |
+| POST | `/api/v1/auth/login` | Verify credentials, returns JWT + all profiles |
+
+### Auth (protected)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/auth/me` | Current user, all profiles, active profile ID |
+| POST | `/api/v1/auth/switch-profile` | Swap active profile, returns new JWT |
+| POST | `/api/v1/auth/profiles` | Add a second profile (owner or renter) |
+
+### Spaces (protected)
+
+| Method | Path | Description |
+|---|---|---|
 | GET | `/api/v1/spaces` | List all active spaces |
-| GET | `/api/v1/spaces/:id` | Get a space |
-| POST | `/api/v1/spaces` | Create a space |
-| PUT | `/api/v1/spaces/:id` | Update a space |
-| DELETE | `/api/v1/spaces/:id` | Deactivate a space |
-| GET | `/api/v1/spaces/:id/bookings` | List bookings for a space |
-| POST | `/api/v1/bookings` | Create a booking |
-| GET | `/api/v1/bookings/:id` | Get a booking |
-| PATCH | `/api/v1/bookings/:id/status` | Update booking status |
+| GET | `/api/v1/spaces/{id}` | Get a space |
+| POST | `/api/v1/spaces` | Create a space — owner profile only |
+| PUT | `/api/v1/spaces/{id}` | Update a space — owner profile only |
+| DELETE | `/api/v1/spaces/{id}` | Deactivate a space — owner profile only |
+
+### Bookings (protected)
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/v1/bookings` | Create a booking — renter profile only |
+| GET | `/api/v1/bookings/{id}` | Get a booking |
+| PATCH | `/api/v1/bookings/{id}/status` | Update booking status |
+| GET | `/api/v1/spaces/{id}/bookings` | List all bookings for a space |
+
+### System
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Server liveness check |
