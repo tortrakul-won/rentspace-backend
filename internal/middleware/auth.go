@@ -53,6 +53,11 @@ func ClaimsFromCtx(ctx context.Context) *Claims {
 	return c
 }
 
+// ContextWithClaims injects claims into a context — used in tests to simulate authenticated requests.
+func ContextWithClaims(ctx context.Context, c *Claims) context.Context {
+	return context.WithValue(ctx, claimsKey, c)
+}
+
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

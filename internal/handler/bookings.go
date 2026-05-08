@@ -12,10 +12,10 @@ import (
 )
 
 type BookingsHandler struct {
-	q *store.Queries
+	q store.Querier
 }
 
-func NewBookingsHandler(q *store.Queries) *BookingsHandler {
+func NewBookingsHandler(q store.Querier) *BookingsHandler {
 	return &BookingsHandler{q: q}
 }
 

@@ -15,12 +15,12 @@ import (
 )
 
 type AuthHandler struct {
-	q         *store.Queries
+	q         store.Querier
 	jwtSecret string
 }
 
 // NewAuthHandler stores the database queries and JWT secret so all auth methods can use them.
-func NewAuthHandler(q *store.Queries, jwtSecret string) *AuthHandler {
+func NewAuthHandler(q store.Querier, jwtSecret string) *AuthHandler {
 	return &AuthHandler{q: q, jwtSecret: jwtSecret}
 }
 

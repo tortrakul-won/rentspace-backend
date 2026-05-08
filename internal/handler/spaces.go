@@ -11,10 +11,10 @@ import (
 )
 
 type SpacesHandler struct {
-	q *store.Queries
+	q store.Querier
 }
 
-func NewSpacesHandler(q *store.Queries) *SpacesHandler {
+func NewSpacesHandler(q store.Querier) *SpacesHandler {
 	return &SpacesHandler{q: q}
 }
 
