@@ -1,7 +1,8 @@
 DROP TABLE IF EXISTS bookings;
 DROP TABLE IF EXISTS spaces;
+DROP TABLE IF EXISTS profiles;
 DROP TABLE IF EXISTS users;
-DROP TYPE IF EXISTS booking_status;
-DROP TYPE IF EXISTS renter_type;
+
 DROP TYPE IF EXISTS space_category;
-DROP TYPE IF EXISTS user_role;
+DROP TYPE IF EXISTS booking_status;
+DROP TYPE IF EXISTS profile_role;

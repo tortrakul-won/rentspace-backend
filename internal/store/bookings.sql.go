@@ -7,7 +7,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,21 +34,18 @@ func (q *Queries) CheckOverlappingBookings(ctx context.Context, arg CheckOverlap
 }
 
 const createBooking = `-- name: CreateBooking :one
-INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee, renter_type, company_name, tax_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, renter_type, company_name, tax_id, created_at, updated_at
+INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at
 `
 
 type CreateBookingParams struct {
-	SpaceID     uuid.UUID      `json:"space_id"`
-	RenterID    uuid.UUID      `json:"renter_id"`
-	StartTime   time.Time      `json:"start_time"`
-	EndTime     time.Time      `json:"end_time"`
-	TotalPrice  int32          `json:"total_price"`
-	PlatformFee int32          `json:"platform_fee"`
-	RenterType  RenterType     `json:"renter_type"`
-	CompanyName sql.NullString `json:"company_name"`
-	TaxID       sql.NullString `json:"tax_id"`
+	SpaceID     uuid.UUID `json:"space_id"`
+	RenterID    uuid.UUID `json:"renter_id"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	TotalPrice  int32     `json:"total_price"`
+	PlatformFee int32     `json:"platform_fee"`
 }
 
 func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error) {
@@ -60,9 +56,6 @@ func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (B
 		arg.EndTime,
 		arg.TotalPrice,
 		arg.PlatformFee,
-		arg.RenterType,
-		arg.CompanyName,
-		arg.TaxID,
 	)
 	var i Booking
 	err := row.Scan(
@@ -74,9 +67,6 @@ func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (B
 		&i.TotalPrice,
 		&i.PlatformFee,
 		&i.Status,
-		&i.RenterType,
-		&i.CompanyName,
-		&i.TaxID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -84,7 +74,7 @@ func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (B
 }
 
 const getBookingByID = `-- name: GetBookingByID :one
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, renter_type, company_name, tax_id, created_at, updated_at FROM bookings WHERE id = $1
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings WHERE id = $1
 `
 
 func (q *Queries) GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, error) {
@@ -99,9 +89,6 @@ func (q *Queries) GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, er
 		&i.TotalPrice,
 		&i.PlatformFee,
 		&i.Status,
-		&i.RenterType,
-		&i.CompanyName,
-		&i.TaxID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -109,7 +96,7 @@ func (q *Queries) GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, er
 }
 
 const listBookingsByRenter = `-- name: ListBookingsByRenter :many
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, renter_type, company_name, tax_id, created_at, updated_at FROM bookings
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings
 WHERE renter_id = $1
 ORDER BY start_time DESC
 `
@@ -132,9 +119,6 @@ func (q *Queries) ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) 
 			&i.TotalPrice,
 			&i.PlatformFee,
 			&i.Status,
-			&i.RenterType,
-			&i.CompanyName,
-			&i.TaxID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -152,7 +136,7 @@ func (q *Queries) ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) 
 }
 
 const listBookingsBySpace = `-- name: ListBookingsBySpace :many
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, renter_type, company_name, tax_id, created_at, updated_at FROM bookings
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings
 WHERE space_id = $1
 ORDER BY start_time DESC
 `
@@ -175,9 +159,6 @@ func (q *Queries) ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([
 			&i.TotalPrice,
 			&i.PlatformFee,
 			&i.Status,
-			&i.RenterType,
-			&i.CompanyName,
-			&i.TaxID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -197,7 +178,7 @@ func (q *Queries) ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([
 const updateBookingStatus = `-- name: UpdateBookingStatus :one
 UPDATE bookings SET status = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, renter_type, company_name, tax_id, created_at, updated_at
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at
 `
 
 type UpdateBookingStatusParams struct {
@@ -217,9 +198,6 @@ func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStat
 		&i.TotalPrice,
 		&i.PlatformFee,
 		&i.Status,
-		&i.RenterType,
-		&i.CompanyName,
-		&i.TaxID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

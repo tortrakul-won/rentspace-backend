@@ -37,7 +37,7 @@ func main() {
 	defer db.Close()
 
 	queries := store.New(db)
-	router := api.NewRouter(queries)
+	router := api.NewRouter(queries, cfg.JWTSecret)
 
 	log.Printf("server listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {

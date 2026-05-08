@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
+	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
 
@@ -18,13 +18,6 @@ func NewSpacesHandler(q *store.Queries) *SpacesHandler {
 	return &SpacesHandler{q: q}
 }
 
-// List godoc
-// @Summary     List all active spaces
-// @Tags        spaces
-// @Produce     json
-// @Success     200 {array}  handler.SpaceResponse
-// @Failure     500 {object} handler.ErrorResponse
-// @Router      /spaces [get]
 func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
 	spaces, err := h.q.ListSpaces(r.Context())
 	if err != nil {
@@ -34,15 +27,6 @@ func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, spaces)
 }
 
-// Get godoc
-// @Summary     Get a space by ID
-// @Tags        spaces
-// @Produce     json
-// @Param       id  path     string  true  "Space UUID"
-// @Success     200 {object} handler.SpaceResponse
-// @Failure     400 {object} handler.ErrorResponse
-// @Failure     404 {object} handler.ErrorResponse
-// @Router      /spaces/{id} [get]
 func (h *SpacesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -57,23 +41,33 @@ func (h *SpacesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, space)
 }
 
-// Create godoc
-// @Summary     Create a new space listing
-// @Tags        spaces
-// @Accept      json
-// @Produce     json
-// @Param       body body     handler.CreateSpaceRequest  true  "Space details"
-// @Success     201  {object} handler.SpaceResponse
-// @Failure     400  {object} handler.ErrorResponse
-// @Failure     500  {object} handler.ErrorResponse
-// @Router      /spaces [post]
+// Create pulls owner_id from the JWT — the request body cannot override it.
 func (h *SpacesHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var body store.CreateSpaceParams
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can create spaces")
+		return
+	}
+
+	var body CreateSpaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	space, err := h.q.CreateSpace(r.Context(), body)
+
+	space, err := h.q.CreateSpace(r.Context(), store.CreateSpaceParams{
+		OwnerID:     claims.ProfileID,
+		Name:        body.Name,
+		Description: body.Description,
+		Location:    body.Location,
+		Category:    store.SpaceCategory(body.Category),
+		Images:      body.Images,
+		HourlyRate:  body.HourlyRate,
+		DailyRate:   body.DailyRate,
+		MinHours:    body.MinHours,
+		Capacity:    body.Capacity,
+		Amenities:   body.Amenities,
+	})
 	if err != nil {
 		Error(w, http.StatusInternalServerError, "failed to create space")
 		return
@@ -81,17 +75,6 @@ func (h *SpacesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusCreated, space)
 }
 
-// Update godoc
-// @Summary     Update a space listing
-// @Tags        spaces
-// @Accept      json
-// @Produce     json
-// @Param       id   path     string                      true  "Space UUID"
-// @Param       body body     handler.CreateSpaceRequest  true  "Updated space details"
-// @Success     200  {object} handler.SpaceResponse
-// @Failure     400  {object} handler.ErrorResponse
-// @Failure     500  {object} handler.ErrorResponse
-// @Router      /spaces/{id} [put]
 func (h *SpacesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -112,24 +95,24 @@ func (h *SpacesHandler) Update(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, space)
 }
 
-// Deactivate godoc
-// @Summary     Deactivate a space listing
-// @Tags        spaces
-// @Produce     json
-// @Param       id  path     string  true  "Space UUID"
-// @Success     200 {object} handler.SpaceResponse
-// @Failure     400 {object} handler.ErrorResponse
-// @Failure     500 {object} handler.ErrorResponse
-// @Router      /spaces/{id} [delete]
+// Deactivate pulls owner_id from the JWT to scope the operation to the authenticated owner.
 func (h *SpacesHandler) Deactivate(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can deactivate spaces")
+		return
+	}
+
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		Error(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	// ownerID will come from auth context once auth middleware is wired
-	params := store.SetSpaceActiveParams{ID: id, IsActive: false, OwnerID: uuid.UUID{}}
-	space, err := h.q.SetSpaceActive(r.Context(), params)
+	space, err := h.q.SetSpaceActive(r.Context(), store.SetSpaceActiveParams{
+		ID:       id,
+		IsActive: false,
+		OwnerID:  claims.ProfileID,
+	})
 	if err != nil {
 		Error(w, http.StatusInternalServerError, "failed to deactivate space")
 		return

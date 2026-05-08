@@ -9,10 +9,11 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	"rentspace/backend/internal/handler"
+	appMiddleware "rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
 
-func NewRouter(q *store.Queries) http.Handler {
+func NewRouter(q *store.Queries, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -28,18 +29,30 @@ func NewRouter(q *store.Queries) http.Handler {
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		spacesHandler := handler.NewSpacesHandler(q)
-		r.Get("/spaces", spacesHandler.List)
-		r.Get("/spaces/{id}", spacesHandler.Get)
-		r.Post("/spaces", spacesHandler.Create)          // TODO: require owner auth
-		r.Put("/spaces/{id}", spacesHandler.Update)      // TODO: require owner auth
-		r.Delete("/spaces/{id}", spacesHandler.Deactivate) // TODO: require owner auth
+		authHandler := handler.NewAuthHandler(q, jwtSecret)
+		r.Post("/auth/register", authHandler.Register)
+		r.Post("/auth/login", authHandler.Login)
 
-		bookingsHandler := handler.NewBookingsHandler(q)
-		r.Post("/bookings", bookingsHandler.Create)                  // TODO: require renter auth
-		r.Get("/bookings/{id}", bookingsHandler.Get)                 // TODO: require auth
-		r.Patch("/bookings/{id}/status", bookingsHandler.UpdateStatus) // TODO: require owner auth
-		r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)  // TODO: require owner auth
+		r.Group(func(r chi.Router) {
+			r.Use(appMiddleware.RequireAuth(jwtSecret))
+
+			r.Get("/auth/me", authHandler.CurrentUser)
+			r.Post("/auth/switch-profile", authHandler.SwitchProfile)
+			r.Post("/auth/profiles", authHandler.AddProfile)
+
+			spacesHandler := handler.NewSpacesHandler(q)
+			r.Get("/spaces", spacesHandler.List)
+			r.Get("/spaces/{id}", spacesHandler.Get)
+			r.Post("/spaces", spacesHandler.Create)
+			r.Put("/spaces/{id}", spacesHandler.Update)
+			r.Delete("/spaces/{id}", spacesHandler.Deactivate)
+
+			bookingsHandler := handler.NewBookingsHandler(q)
+			r.Post("/bookings", bookingsHandler.Create)
+			r.Get("/bookings/{id}", bookingsHandler.Get)
+			r.Patch("/bookings/{id}/status", bookingsHandler.UpdateStatus)
+			r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)
+		})
 	})
 
 	return r

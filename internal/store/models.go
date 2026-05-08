@@ -57,46 +57,46 @@ func (ns NullBookingStatus) Value() (driver.Value, error) {
 	return string(ns.BookingStatus), nil
 }
 
-type RenterType string
+type ProfileRole string
 
 const (
-	RenterTypeIndividual RenterType = "individual"
-	RenterTypeCompany    RenterType = "company"
+	ProfileRoleOwner  ProfileRole = "owner"
+	ProfileRoleRenter ProfileRole = "renter"
 )
 
-func (e *RenterType) Scan(src interface{}) error {
+func (e *ProfileRole) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
-		*e = RenterType(s)
+		*e = ProfileRole(s)
 	case string:
-		*e = RenterType(s)
+		*e = ProfileRole(s)
 	default:
-		return fmt.Errorf("unsupported scan type for RenterType: %T", src)
+		return fmt.Errorf("unsupported scan type for ProfileRole: %T", src)
 	}
 	return nil
 }
 
-type NullRenterType struct {
-	RenterType RenterType `json:"renter_type"`
-	Valid      bool       `json:"valid"` // Valid is true if RenterType is not NULL
+type NullProfileRole struct {
+	ProfileRole ProfileRole `json:"profile_role"`
+	Valid       bool        `json:"valid"` // Valid is true if ProfileRole is not NULL
 }
 
 // Scan implements the Scanner interface.
-func (ns *NullRenterType) Scan(value interface{}) error {
+func (ns *NullProfileRole) Scan(value interface{}) error {
 	if value == nil {
-		ns.RenterType, ns.Valid = "", false
+		ns.ProfileRole, ns.Valid = "", false
 		return nil
 	}
 	ns.Valid = true
-	return ns.RenterType.Scan(value)
+	return ns.ProfileRole.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
-func (ns NullRenterType) Value() (driver.Value, error) {
+func (ns NullProfileRole) Value() (driver.Value, error) {
 	if !ns.Valid {
 		return nil, nil
 	}
-	return string(ns.RenterType), nil
+	return string(ns.ProfileRole), nil
 }
 
 type SpaceCategory string
@@ -145,63 +145,30 @@ func (ns NullSpaceCategory) Value() (driver.Value, error) {
 	return string(ns.SpaceCategory), nil
 }
 
-type UserRole string
-
-const (
-	UserRoleOwner  UserRole = "owner"
-	UserRoleRenter UserRole = "renter"
-	UserRoleBoth   UserRole = "both"
-)
-
-func (e *UserRole) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = UserRole(s)
-	case string:
-		*e = UserRole(s)
-	default:
-		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
-	}
-	return nil
-}
-
-type NullUserRole struct {
-	UserRole UserRole `json:"user_role"`
-	Valid    bool     `json:"valid"` // Valid is true if UserRole is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullUserRole) Scan(value interface{}) error {
-	if value == nil {
-		ns.UserRole, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.UserRole.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullUserRole) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.UserRole), nil
-}
-
 type Booking struct {
-	ID          uuid.UUID      `json:"id"`
-	SpaceID     uuid.UUID      `json:"space_id"`
-	RenterID    uuid.UUID      `json:"renter_id"`
-	StartTime   time.Time      `json:"start_time"`
-	EndTime     time.Time      `json:"end_time"`
-	TotalPrice  int32          `json:"total_price"`
-	PlatformFee int32          `json:"platform_fee"`
-	Status      BookingStatus  `json:"status"`
-	RenterType  RenterType     `json:"renter_type"`
-	CompanyName sql.NullString `json:"company_name"`
-	TaxID       sql.NullString `json:"tax_id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID          uuid.UUID     `json:"id"`
+	SpaceID     uuid.UUID     `json:"space_id"`
+	RenterID    uuid.UUID     `json:"renter_id"`
+	StartTime   time.Time     `json:"start_time"`
+	EndTime     time.Time     `json:"end_time"`
+	TotalPrice  int32         `json:"total_price"`
+	PlatformFee int32         `json:"platform_fee"`
+	Status      BookingStatus `json:"status"`
+	CreatedAt   time.Time     `json:"created_at"`
+	UpdatedAt   time.Time     `json:"updated_at"`
+}
+
+type Profile struct {
+	ID              uuid.UUID      `json:"id"`
+	UserID          uuid.UUID      `json:"user_id"`
+	Role            ProfileRole    `json:"role"`
+	DisplayName     string         `json:"display_name"`
+	TaxID           sql.NullString `json:"tax_id"`
+	IsJuristic      bool           `json:"is_juristic"`
+	IsVatRegistered bool           `json:"is_vat_registered"`
+	IsActive        bool           `json:"is_active"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 type Space struct {
@@ -223,15 +190,11 @@ type Space struct {
 }
 
 type User struct {
-	ID              uuid.UUID      `json:"id"`
-	Email           string         `json:"email"`
-	PasswordHash    string         `json:"password_hash"`
-	FullName        string         `json:"full_name"`
-	Phone           sql.NullString `json:"phone"`
-	Role            UserRole       `json:"role"`
-	TaxID           sql.NullString `json:"tax_id"`
-	IsJuristic      bool           `json:"is_juristic"`
-	IsVatRegistered bool           `json:"is_vat_registered"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
+	ID           uuid.UUID      `json:"id"`
+	Email        string         `json:"email"`
+	PasswordHash string         `json:"password_hash"`
+	FullName     string         `json:"full_name"`
+	Phone        sql.NullString `json:"phone"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 }

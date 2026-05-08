@@ -3,9 +3,11 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
 
@@ -17,28 +19,40 @@ func NewBookingsHandler(q *store.Queries) *BookingsHandler {
 	return &BookingsHandler{q: q}
 }
 
-// Create godoc
-// @Summary     Create a booking
-// @Tags        bookings
-// @Accept      json
-// @Produce     json
-// @Param       body body     handler.CreateBookingRequest  true  "Booking details"
-// @Success     201  {object} handler.BookingResponse
-// @Failure     400  {object} handler.ErrorResponse
-// @Failure     409  {object} handler.ErrorResponse "Space not available"
-// @Failure     500  {object} handler.ErrorResponse
-// @Router      /bookings [post]
+// Create pulls renter_id from the JWT — the request body cannot override it.
 func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var body store.CreateBookingParams
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "renter" {
+		Error(w, http.StatusForbidden, "only renter profiles can create bookings")
+		return
+	}
+
+	var body CreateBookingRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
+	spaceID, err := parseUUID(body.SpaceID)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid space_id")
+		return
+	}
+	startTime, err := time.Parse(time.RFC3339, body.StartTime)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid start_time, use RFC3339 format")
+		return
+	}
+	endTime, err := time.Parse(time.RFC3339, body.EndTime)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid end_time, use RFC3339 format")
+		return
+	}
+
 	count, err := h.q.CheckOverlappingBookings(r.Context(), store.CheckOverlappingBookingsParams{
-		SpaceID:   body.SpaceID,
-		StartTime: body.StartTime,
-		EndTime:   body.EndTime,
+		SpaceID:   spaceID,
+		StartTime: startTime,
+		EndTime:   endTime,
 	})
 	if err != nil {
 		Error(w, http.StatusInternalServerError, "failed to check availability")
@@ -49,7 +63,14 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	booking, err := h.q.CreateBooking(r.Context(), body)
+	booking, err := h.q.CreateBooking(r.Context(), store.CreateBookingParams{
+		SpaceID:     spaceID,
+		RenterID:    claims.ProfileID,
+		StartTime:   startTime,
+		EndTime:     endTime,
+		TotalPrice:  body.TotalPrice,
+		PlatformFee: body.PlatformFee,
+	})
 	if err != nil {
 		Error(w, http.StatusInternalServerError, "failed to create booking")
 		return
@@ -57,15 +78,6 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusCreated, booking)
 }
 
-// Get godoc
-// @Summary     Get a booking by ID
-// @Tags        bookings
-// @Produce     json
-// @Param       id  path     string  true  "Booking UUID"
-// @Success     200 {object} handler.BookingResponse
-// @Failure     400 {object} handler.ErrorResponse
-// @Failure     404 {object} handler.ErrorResponse
-// @Router      /bookings/{id} [get]
 func (h *BookingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -80,15 +92,6 @@ func (h *BookingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, booking)
 }
 
-// ListBySpace godoc
-// @Summary     List bookings for a space
-// @Tags        bookings
-// @Produce     json
-// @Param       id  path     string  true  "Space UUID"
-// @Success     200 {array}  handler.BookingResponse
-// @Failure     400 {object} handler.ErrorResponse
-// @Failure     500 {object} handler.ErrorResponse
-// @Router      /spaces/{id}/bookings [get]
 func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 	spaceID, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -103,17 +106,6 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, bookings)
 }
 
-// UpdateStatus godoc
-// @Summary     Update booking status
-// @Tags        bookings
-// @Accept      json
-// @Produce     json
-// @Param       id   path     string                      true  "Booking UUID"
-// @Param       body body     handler.UpdateStatusRequest true  "New status"
-// @Success     200  {object} handler.BookingResponse
-// @Failure     400  {object} handler.ErrorResponse
-// @Failure     500  {object} handler.ErrorResponse
-// @Router      /bookings/{id}/status [patch]
 func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
