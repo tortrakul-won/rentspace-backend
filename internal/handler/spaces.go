@@ -75,21 +75,41 @@ func (h *SpacesHandler) Create(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusCreated, space)
 }
 
+// Update pulls owner_id from the JWT — the SQL also enforces ownership via WHERE owner_id = $12.
 func (h *SpacesHandler) Update(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can update spaces")
+		return
+	}
+
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		Error(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	var body store.UpdateSpaceParams
+	var body CreateSpaceRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	body.ID = id
-	space, err := h.q.UpdateSpace(r.Context(), body)
+
+	space, err := h.q.UpdateSpace(r.Context(), store.UpdateSpaceParams{
+		ID:          id,
+		OwnerID:     claims.ProfileID,
+		Name:        body.Name,
+		Description: body.Description,
+		Location:    body.Location,
+		Category:    store.SpaceCategory(body.Category),
+		Images:      body.Images,
+		HourlyRate:  body.HourlyRate,
+		DailyRate:   body.DailyRate,
+		MinHours:    body.MinHours,
+		Capacity:    body.Capacity,
+		Amenities:   body.Amenities,
+	})
 	if err != nil {
-		Error(w, http.StatusInternalServerError, "failed to update space")
+		Error(w, http.StatusNotFound, "space not found or not owned by you")
 		return
 	}
 	JSON(w, http.StatusOK, space)

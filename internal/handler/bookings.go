@@ -106,7 +106,12 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, bookings)
 }
 
+// UpdateStatus enforces role-based status transitions:
+// owner (must own the space) → confirmed, completed, cancelled
+// renter (must own the booking) → cancelled only
 func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		Error(w, http.StatusBadRequest, "invalid id")
@@ -117,7 +122,39 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	booking, err := h.q.UpdateBookingStatus(r.Context(), store.UpdateBookingStatusParams{
+
+	booking, err := h.q.GetBookingByID(r.Context(), id)
+	if err != nil {
+		Error(w, http.StatusNotFound, "booking not found")
+		return
+	}
+
+	switch claims.Role {
+	case "renter":
+		if booking.RenterID != claims.ProfileID {
+			Error(w, http.StatusForbidden, "this booking does not belong to you")
+			return
+		}
+		if body.Status != store.BookingStatusCancelled {
+			Error(w, http.StatusForbidden, "renters can only cancel bookings")
+			return
+		}
+	case "owner":
+		space, err := h.q.GetSpaceByID(r.Context(), booking.SpaceID)
+		if err != nil || space.OwnerID != claims.ProfileID {
+			Error(w, http.StatusForbidden, "this booking is not for your space")
+			return
+		}
+		if body.Status == store.BookingStatusPending {
+			Error(w, http.StatusBadRequest, "cannot revert a booking to pending")
+			return
+		}
+	default:
+		Error(w, http.StatusForbidden, "unknown role")
+		return
+	}
+
+	updated, err := h.q.UpdateBookingStatus(r.Context(), store.UpdateBookingStatusParams{
 		ID:     id,
 		Status: body.Status,
 	})
@@ -125,7 +162,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusInternalServerError, "failed to update booking status")
 		return
 	}
-	JSON(w, http.StatusOK, booking)
+	JSON(w, http.StatusOK, updated)
 }
 
 type UpdateStatusRequest struct {
