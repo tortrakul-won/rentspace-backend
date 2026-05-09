@@ -55,6 +55,42 @@ func renterCtx(r *http.Request) *http.Request {
 	return r.WithContext(middleware.ContextWithClaims(r.Context(), claims))
 }
 
+// --- Mine ---
+
+func TestSpacesHandler_Mine_Success(t *testing.T) {
+	q := &mockStore{
+		listSpacesByOwner: func(_ context.Context, ownerID uuid.UUID) ([]store.Space, error) {
+			if ownerID != testProfileID {
+				t.Errorf("expected ownerID=%s, got %s", testProfileID, ownerID)
+			}
+			return []store.Space{stubSpace()}, nil
+		},
+	}
+	h := NewSpacesHandler(q)
+	r := ownerCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine", nil))
+	w := httptest.NewRecorder()
+	h.Mine(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var spaces []store.Space
+	decodeJSON(t, w.Body, &spaces)
+	if len(spaces) != 1 {
+		t.Errorf("expected 1 space, got %d", len(spaces))
+	}
+}
+
+func TestSpacesHandler_Mine_ForbiddenForRenter(t *testing.T) {
+	h := NewSpacesHandler(&mockStore{})
+	r := renterCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine", nil))
+	w := httptest.NewRecorder()
+	h.Mine(w, r)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+}
+
 // --- Create ---
 
 func TestSpacesHandler_Create_Success(t *testing.T) {
