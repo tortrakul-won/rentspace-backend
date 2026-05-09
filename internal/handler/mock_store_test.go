@@ -35,7 +35,10 @@ type mockStore struct {
 	listSpacesByCategory     func(ctx context.Context, category store.SpaceCategory) ([]store.Space, error)
 	listSpacesByOwner        func(ctx context.Context, ownerID uuid.UUID) ([]store.Space, error)
 	setSpaceActive           func(ctx context.Context, arg store.SetSpaceActiveParams) (store.Space, error)
-	updateSpace              func(ctx context.Context, arg store.UpdateSpaceParams) (store.Space, error)
+	updateSpace                  func(ctx context.Context, arg store.UpdateSpaceParams) (store.Space, error)
+	getSpaceAvailability         func(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error)
+	upsertSpaceAvailability      func(ctx context.Context, arg store.UpsertSpaceAvailabilityParams) (store.SpaceAvailability, error)
+	deleteSpaceAvailability      func(ctx context.Context, spaceID uuid.UUID) error
 	createBooking            func(ctx context.Context, arg store.CreateBookingParams) (store.Booking, error)
 	getBookingByID           func(ctx context.Context, id uuid.UUID) (store.Booking, error)
 	listBookingsByRenter     func(ctx context.Context, renterID uuid.UUID) ([]store.Booking, error)
@@ -134,6 +137,24 @@ func (m *mockStore) UpdateSpace(ctx context.Context, arg store.UpdateSpaceParams
 		return m.updateSpace(ctx, arg)
 	}
 	return store.Space{}, errors.New("not implemented")
+}
+func (m *mockStore) GetSpaceAvailability(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error) {
+	if m.getSpaceAvailability != nil {
+		return m.getSpaceAvailability(ctx, spaceID)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) UpsertSpaceAvailability(ctx context.Context, arg store.UpsertSpaceAvailabilityParams) (store.SpaceAvailability, error) {
+	if m.upsertSpaceAvailability != nil {
+		return m.upsertSpaceAvailability(ctx, arg)
+	}
+	return store.SpaceAvailability{}, errors.New("not implemented")
+}
+func (m *mockStore) DeleteSpaceAvailability(ctx context.Context, spaceID uuid.UUID) error {
+	if m.deleteSpaceAvailability != nil {
+		return m.deleteSpaceAvailability(ctx, spaceID)
+	}
+	return errors.New("not implemented")
 }
 func (m *mockStore) CreateBooking(ctx context.Context, arg store.CreateBookingParams) (store.Booking, error) {
 	if m.createBooking != nil {

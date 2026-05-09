@@ -13,23 +13,24 @@ import (
 )
 
 const createSpace = `-- name: CreateSpace :one
-INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at
+INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, weekend_surcharge_pct)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct
 `
 
 type CreateSpaceParams struct {
-	OwnerID     uuid.UUID     `json:"owner_id"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Location    string        `json:"location"`
-	Category    SpaceCategory `json:"category"`
-	Images      []string      `json:"images"`
-	HourlyRate  int32         `json:"hourly_rate"`
-	DailyRate   int32         `json:"daily_rate"`
-	MinHours    int32         `json:"min_hours"`
-	Capacity    int32         `json:"capacity"`
-	Amenities   []string      `json:"amenities"`
+	OwnerID             uuid.UUID     `json:"owner_id"`
+	Name                string        `json:"name"`
+	Description         string        `json:"description"`
+	Location            string        `json:"location"`
+	Category            SpaceCategory `json:"category"`
+	Images              []string      `json:"images"`
+	HourlyRate          int32         `json:"hourly_rate"`
+	DailyRate           int32         `json:"daily_rate"`
+	MinHours            int32         `json:"min_hours"`
+	Capacity            int32         `json:"capacity"`
+	Amenities           []string      `json:"amenities"`
+	WeekendSurchargePct int32         `json:"weekend_surcharge_pct"`
 }
 
 func (q *Queries) CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space, error) {
@@ -45,6 +46,7 @@ func (q *Queries) CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space
 		arg.MinHours,
 		arg.Capacity,
 		pq.Array(arg.Amenities),
+		arg.WeekendSurchargePct,
 	)
 	var i Space
 	err := row.Scan(
@@ -63,12 +65,13 @@ func (q *Queries) CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeekendSurchargePct,
 	)
 	return i, err
 }
 
 const getSpaceByID = `-- name: GetSpaceByID :one
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
 WHERE id = $1
 `
 
@@ -91,12 +94,13 @@ func (q *Queries) GetSpaceByID(ctx context.Context, id uuid.UUID) (Space, error)
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeekendSurchargePct,
 	)
 	return i, err
 }
 
 const listSpaces = `-- name: ListSpaces :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
 WHERE is_active = TRUE
 ORDER BY created_at DESC
 `
@@ -126,6 +130,7 @@ func (q *Queries) ListSpaces(ctx context.Context) ([]Space, error) {
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.WeekendSurchargePct,
 		); err != nil {
 			return nil, err
 		}
@@ -141,7 +146,7 @@ func (q *Queries) ListSpaces(ctx context.Context) ([]Space, error) {
 }
 
 const listSpacesByCategory = `-- name: ListSpacesByCategory :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
 WHERE is_active = TRUE AND category = $1
 ORDER BY created_at DESC
 `
@@ -171,6 +176,7 @@ func (q *Queries) ListSpacesByCategory(ctx context.Context, category SpaceCatego
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.WeekendSurchargePct,
 		); err != nil {
 			return nil, err
 		}
@@ -186,7 +192,7 @@ func (q *Queries) ListSpacesByCategory(ctx context.Context, category SpaceCatego
 }
 
 const listSpacesByOwner = `-- name: ListSpacesByOwner :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
 WHERE owner_id = $1
 ORDER BY created_at DESC
 `
@@ -216,6 +222,7 @@ func (q *Queries) ListSpacesByOwner(ctx context.Context, ownerID uuid.UUID) ([]S
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.WeekendSurchargePct,
 		); err != nil {
 			return nil, err
 		}
@@ -233,7 +240,7 @@ func (q *Queries) ListSpacesByOwner(ctx context.Context, ownerID uuid.UUID) ([]S
 const setSpaceActive = `-- name: SetSpaceActive :one
 UPDATE spaces SET is_active = $2, updated_at = NOW()
 WHERE id = $1 AND owner_id = $3
-RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at
+RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct
 `
 
 type SetSpaceActiveParams struct {
@@ -261,40 +268,43 @@ func (q *Queries) SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) 
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeekendSurchargePct,
 	)
 	return i, err
 }
 
 const updateSpace = `-- name: UpdateSpace :one
 UPDATE spaces SET
-  name        = $2,
-  description = $3,
-  location    = $4,
-  category    = $5,
-  images      = $6,
-  hourly_rate = $7,
-  daily_rate  = $8,
-  min_hours   = $9,
-  capacity    = $10,
-  amenities   = $11,
-  updated_at  = NOW()
-WHERE id = $1 AND owner_id = $12
-RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at
+  name                  = $2,
+  description           = $3,
+  location              = $4,
+  category              = $5,
+  images                = $6,
+  hourly_rate           = $7,
+  daily_rate            = $8,
+  min_hours             = $9,
+  capacity              = $10,
+  amenities             = $11,
+  weekend_surcharge_pct = $12,
+  updated_at            = NOW()
+WHERE id = $1 AND owner_id = $13
+RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct
 `
 
 type UpdateSpaceParams struct {
-	ID          uuid.UUID     `json:"id"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Location    string        `json:"location"`
-	Category    SpaceCategory `json:"category"`
-	Images      []string      `json:"images"`
-	HourlyRate  int32         `json:"hourly_rate"`
-	DailyRate   int32         `json:"daily_rate"`
-	MinHours    int32         `json:"min_hours"`
-	Capacity    int32         `json:"capacity"`
-	Amenities   []string      `json:"amenities"`
-	OwnerID     uuid.UUID     `json:"owner_id"`
+	ID                  uuid.UUID     `json:"id"`
+	Name                string        `json:"name"`
+	Description         string        `json:"description"`
+	Location            string        `json:"location"`
+	Category            SpaceCategory `json:"category"`
+	Images              []string      `json:"images"`
+	HourlyRate          int32         `json:"hourly_rate"`
+	DailyRate           int32         `json:"daily_rate"`
+	MinHours            int32         `json:"min_hours"`
+	Capacity            int32         `json:"capacity"`
+	Amenities           []string      `json:"amenities"`
+	WeekendSurchargePct int32         `json:"weekend_surcharge_pct"`
+	OwnerID             uuid.UUID     `json:"owner_id"`
 }
 
 func (q *Queries) UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space, error) {
@@ -310,6 +320,7 @@ func (q *Queries) UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space
 		arg.MinHours,
 		arg.Capacity,
 		pq.Array(arg.Amenities),
+		arg.WeekendSurchargePct,
 		arg.OwnerID,
 	)
 	var i Space
@@ -329,6 +340,7 @@ func (q *Queries) UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WeekendSurchargePct,
 	)
 	return i, err
 }

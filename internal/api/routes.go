@@ -56,8 +56,12 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Post("/spaces", spacesHandler.Create)
 			// PUT    /spaces/{id}  — update a space (owner profile only)
 			r.Put("/spaces/{id}", spacesHandler.Update)
-			// DELETE /spaces/{id}  — deactivate a space (owner profile only)
+			// DELETE /spaces/{id}             — deactivate a space (owner profile only)
 			r.Delete("/spaces/{id}", spacesHandler.Deactivate)
+			// GET    /spaces/{id}/availability — get weekly open hours schedule
+			r.Get("/spaces/{id}/availability", spacesHandler.GetAvailability)
+			// PUT    /spaces/{id}/availability — replace weekly schedule (owner only)
+			r.Put("/spaces/{id}/availability", spacesHandler.SetAvailability)
 
 			bookingsHandler := handler.NewBookingsHandler(q)
 			// POST  /bookings             — create a booking (renter profile only; renter_id taken from JWT)
