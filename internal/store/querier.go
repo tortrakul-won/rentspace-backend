@@ -16,10 +16,12 @@ type Querier interface {
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteSpaceAvailability(ctx context.Context, spaceID uuid.UUID) error
 	GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, error)
 	GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error)
 	GetProfileByUserAndRole(ctx context.Context, arg GetProfileByUserAndRoleParams) (Profile, error)
 	GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]Profile, error)
+	GetSpaceAvailability(ctx context.Context, spaceID uuid.UUID) ([]SpaceAvailability, error)
 	GetSpaceByID(ctx context.Context, id uuid.UUID) (Space, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
@@ -31,6 +33,7 @@ type Querier interface {
 	SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) (Space, error)
 	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
 	UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space, error)
+	UpsertSpaceAvailability(ctx context.Context, arg UpsertSpaceAvailabilityParams) (SpaceAvailability, error)
 }
 
 var _ Querier = (*Queries)(nil)

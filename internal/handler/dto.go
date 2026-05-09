@@ -74,34 +74,46 @@ type ProfileResponse struct {
 // --- Spaces ---
 
 type CreateSpaceRequest struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Location    string   `json:"location"`
-	Category    string   `json:"category"`
-	Images      []string `json:"images"`
-	HourlyRate  int32    `json:"hourly_rate"`
-	DailyRate   int32    `json:"daily_rate"`
-	MinHours    int32    `json:"min_hours"`
-	Capacity    int32    `json:"capacity"`
-	Amenities   []string `json:"amenities"`
+	Name                string   `json:"name"`
+	Description         string   `json:"description"`
+	Location            string   `json:"location"`
+	Category            string   `json:"category"`
+	Images              []string `json:"images"`
+	HourlyRate          int32    `json:"hourly_rate"`
+	DailyRate           int32    `json:"daily_rate"`
+	MinHours            int32    `json:"min_hours"`
+	Capacity            int32    `json:"capacity"`
+	Amenities           []string `json:"amenities"`
+	WeekendSurchargePct int32    `json:"weekend_surcharge_pct"`
 }
 
 type SpaceResponse struct {
-	ID          string   `json:"id"`
-	OwnerID     string   `json:"owner_id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Location    string   `json:"location"`
-	Category    string   `json:"category"`
-	Images      []string `json:"images"`
-	HourlyRate  int32    `json:"hourly_rate"`
-	DailyRate   int32    `json:"daily_rate"`
-	MinHours    int32    `json:"min_hours"`
-	Capacity    int32    `json:"capacity"`
-	Amenities   []string `json:"amenities"`
-	IsActive    bool     `json:"is_active"`
-	CreatedAt   string   `json:"created_at"`
-	UpdatedAt   string   `json:"updated_at"`
+	ID                  string   `json:"id"`
+	OwnerID             string   `json:"owner_id"`
+	Name                string   `json:"name"`
+	Description         string   `json:"description"`
+	Location            string   `json:"location"`
+	Category            string   `json:"category"`
+	Images              []string `json:"images"`
+	HourlyRate          int32    `json:"hourly_rate"`
+	DailyRate           int32    `json:"daily_rate"`
+	MinHours            int32    `json:"min_hours"`
+	Capacity            int32    `json:"capacity"`
+	Amenities           []string `json:"amenities"`
+	WeekendSurchargePct int32    `json:"weekend_surcharge_pct"`
+	IsActive            bool     `json:"is_active"`
+	CreatedAt           string   `json:"created_at"`
+	UpdatedAt           string   `json:"updated_at"`
+}
+
+type AvailabilitySlot struct {
+	DayOfWeek int    `json:"day_of_week"`
+	OpenTime  string `json:"open_time"`
+	CloseTime string `json:"close_time"`
+}
+
+type SetAvailabilityRequest struct {
+	Schedule []AvailabilitySlot `json:"schedule"`
 }
 
 // --- Bookings ---
