@@ -50,6 +50,8 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			spacesHandler := handler.NewSpacesHandler(q)
 			// GET    /spaces       — list all active spaces
 			r.Get("/spaces", spacesHandler.List)
+			// GET    /spaces/mine  — list all spaces owned by the authenticated owner profile (active + inactive)
+			r.Get("/spaces/mine", spacesHandler.Mine)
 			// GET    /spaces/{id}  — get a single space by ID
 			r.Get("/spaces/{id}", spacesHandler.Get)
 			// POST   /spaces       — create a space (owner profile only; owner_id taken from JWT)

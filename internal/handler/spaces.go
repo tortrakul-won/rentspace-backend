@@ -29,6 +29,21 @@ func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, spaces)
 }
 
+// Mine returns all spaces (active and inactive) owned by the authenticated owner profile.
+func (h *SpacesHandler) Mine(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can list their spaces")
+		return
+	}
+	spaces, err := h.q.ListSpacesByOwner(r.Context(), claims.ProfileID)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, spaces)
+}
+
 func (h *SpacesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
