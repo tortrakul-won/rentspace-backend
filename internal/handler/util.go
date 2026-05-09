@@ -34,6 +34,15 @@ func parsePagination(r *http.Request) (page, limit int32) {
 	return
 }
 
+// nonNil returns the slice unchanged if non-nil, otherwise an empty slice.
+// Prevents nil slices from marshaling as JSON null instead of [].
+func nonNil[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
+
 func parseUUID(s string) (uuid.UUID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {

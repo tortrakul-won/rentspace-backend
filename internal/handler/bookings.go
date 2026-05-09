@@ -189,7 +189,7 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSON(w, http.StatusOK, Page[store.Booking]{
-		Data:    bookings,
+		Data:    nonNil(bookings),
 		Total:   total,
 		Page:    page,
 		Limit:   limit,

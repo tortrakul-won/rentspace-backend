@@ -57,7 +57,7 @@ func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSON(w, http.StatusOK, Page[store.Space]{
-		Data:    spaces,
+		Data:    nonNil(spaces),
 		Total:   total,
 		Page:    page,
 		Limit:   limit,
@@ -90,7 +90,7 @@ func (h *SpacesHandler) Mine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSON(w, http.StatusOK, Page[store.Space]{
-		Data:    spaces,
+		Data:    nonNil(spaces),
 		Total:   total,
 		Page:    page,
 		Limit:   limit,
