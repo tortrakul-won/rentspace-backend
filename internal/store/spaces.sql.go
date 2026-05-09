@@ -12,6 +12,28 @@ import (
 	"github.com/lib/pq"
 )
 
+const countSpaces = `-- name: CountSpaces :one
+SELECT COUNT(*) FROM spaces WHERE is_active = TRUE
+`
+
+func (q *Queries) CountSpaces(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSpaces)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSpacesByOwner = `-- name: CountSpacesByOwner :one
+SELECT COUNT(*) FROM spaces WHERE owner_id = $1
+`
+
+func (q *Queries) CountSpacesByOwner(ctx context.Context, ownerID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSpacesByOwner, ownerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSpace = `-- name: CreateSpace :one
 INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, weekend_surcharge_pct)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -199,6 +221,111 @@ ORDER BY created_at DESC
 
 func (q *Queries) ListSpacesByOwner(ctx context.Context, ownerID uuid.UUID) ([]Space, error) {
 	rows, err := q.db.QueryContext(ctx, listSpacesByOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Space
+	for rows.Next() {
+		var i Space
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Description,
+			&i.Location,
+			&i.Category,
+			pq.Array(&i.Images),
+			&i.HourlyRate,
+			&i.DailyRate,
+			&i.MinHours,
+			&i.Capacity,
+			pq.Array(&i.Amenities),
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.WeekendSurchargePct,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpacesByOwnerPaginated = `-- name: ListSpacesByOwnerPaginated :many
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
+WHERE owner_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListSpacesByOwnerPaginatedParams struct {
+	OwnerID uuid.UUID `json:"owner_id"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+}
+
+func (q *Queries) ListSpacesByOwnerPaginated(ctx context.Context, arg ListSpacesByOwnerPaginatedParams) ([]Space, error) {
+	rows, err := q.db.QueryContext(ctx, listSpacesByOwnerPaginated, arg.OwnerID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Space
+	for rows.Next() {
+		var i Space
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Description,
+			&i.Location,
+			&i.Category,
+			pq.Array(&i.Images),
+			&i.HourlyRate,
+			&i.DailyRate,
+			&i.MinHours,
+			&i.Capacity,
+			pq.Array(&i.Amenities),
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.WeekendSurchargePct,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpacesPaginated = `-- name: ListSpacesPaginated :many
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
+WHERE is_active = TRUE
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListSpacesPaginatedParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListSpacesPaginated(ctx context.Context, arg ListSpacesPaginatedParams) ([]Space, error) {
+	rows, err := q.db.QueryContext(ctx, listSpacesPaginated, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

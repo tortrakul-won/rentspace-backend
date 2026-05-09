@@ -3,6 +3,15 @@ SELECT * FROM spaces
 WHERE is_active = TRUE
 ORDER BY created_at DESC;
 
+-- name: ListSpacesPaginated :many
+SELECT * FROM spaces
+WHERE is_active = TRUE
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountSpaces :one
+SELECT COUNT(*) FROM spaces WHERE is_active = TRUE;
+
 -- name: ListSpacesByCategory :many
 SELECT * FROM spaces
 WHERE is_active = TRUE AND category = @category
@@ -16,6 +25,15 @@ WHERE id = $1;
 SELECT * FROM spaces
 WHERE owner_id = $1
 ORDER BY created_at DESC;
+
+-- name: ListSpacesByOwnerPaginated :many
+SELECT * FROM spaces
+WHERE owner_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountSpacesByOwner :one
+SELECT COUNT(*) FROM spaces WHERE owner_id = $1;
 
 -- name: CreateSpace :one
 INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, weekend_surcharge_pct)

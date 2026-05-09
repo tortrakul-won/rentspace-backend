@@ -143,3 +143,11 @@ type BookingResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+type Page[T any] struct {
+	Data    []T   `json:"data"`
+	Total   int64 `json:"total"`
+	Page    int32 `json:"page"`
+	Limit   int32 `json:"limit"`
+	HasMore bool  `json:"has_more"`
+}
