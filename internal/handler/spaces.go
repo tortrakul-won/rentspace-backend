@@ -21,12 +21,29 @@ func NewSpacesHandler(q store.Store) *SpacesHandler {
 }
 
 func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
-	spaces, err := h.q.ListSpaces(r.Context())
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+
+	spaces, err := h.q.ListSpacesPaginated(r.Context(), store.ListSpacesPaginatedParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	JSON(w, http.StatusOK, spaces)
+	total, err := h.q.CountSpaces(r.Context())
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, Page[store.Space]{
+		Data:    spaces,
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: int64(offset)+int64(len(spaces)) < total,
+	})
 }
 
 // Mine returns all spaces (active and inactive) owned by the authenticated owner profile.
@@ -36,12 +53,30 @@ func (h *SpacesHandler) Mine(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusForbidden, "only owner profiles can list their spaces")
 		return
 	}
-	spaces, err := h.q.ListSpacesByOwner(r.Context(), claims.ProfileID)
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+
+	spaces, err := h.q.ListSpacesByOwnerPaginated(r.Context(), store.ListSpacesByOwnerPaginatedParams{
+		OwnerID: claims.ProfileID,
+		Limit:   limit,
+		Offset:  offset,
+	})
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	JSON(w, http.StatusOK, spaces)
+	total, err := h.q.CountSpacesByOwner(r.Context(), claims.ProfileID)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, Page[store.Space]{
+		Data:    spaces,
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: int64(offset)+int64(len(spaces)) < total,
+	})
 }
 
 func (h *SpacesHandler) Get(w http.ResponseWriter, r *http.Request) {

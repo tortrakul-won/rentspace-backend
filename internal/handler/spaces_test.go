@@ -59,12 +59,13 @@ func renterCtx(r *http.Request) *http.Request {
 
 func TestSpacesHandler_Mine_Success(t *testing.T) {
 	q := &mockStore{
-		listSpacesByOwner: func(_ context.Context, ownerID uuid.UUID) ([]store.Space, error) {
-			if ownerID != testProfileID {
-				t.Errorf("expected ownerID=%s, got %s", testProfileID, ownerID)
+		listSpacesByOwnerPaginated: func(_ context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error) {
+			if arg.OwnerID != testProfileID {
+				t.Errorf("expected ownerID=%s, got %s", testProfileID, arg.OwnerID)
 			}
 			return []store.Space{stubSpace()}, nil
 		},
+		countSpacesByOwner: func(_ context.Context, _ uuid.UUID) (int64, error) { return 1, nil },
 	}
 	h := NewSpacesHandler(q)
 	r := ownerCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine", nil))
@@ -74,10 +75,47 @@ func TestSpacesHandler_Mine_Success(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
-	var spaces []store.Space
-	decodeJSON(t, w.Body, &spaces)
-	if len(spaces) != 1 {
-		t.Errorf("expected 1 space, got %d", len(spaces))
+	var resp Page[store.Space]
+	decodeJSON(t, w.Body, &resp)
+	if len(resp.Data) != 1 {
+		t.Errorf("expected 1 space, got %d", len(resp.Data))
+	}
+	if resp.Total != 1 {
+		t.Errorf("expected total=1, got %d", resp.Total)
+	}
+}
+
+func TestSpacesHandler_Mine_Pagination(t *testing.T) {
+	q := &mockStore{
+		listSpacesByOwnerPaginated: func(_ context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error) {
+			if arg.Limit != 5 {
+				t.Errorf("expected limit=5, got %d", arg.Limit)
+			}
+			if arg.Offset != 5 {
+				t.Errorf("expected offset=5 (page 2), got %d", arg.Offset)
+			}
+			return []store.Space{stubSpace()}, nil
+		},
+		countSpacesByOwner: func(_ context.Context, _ uuid.UUID) (int64, error) { return 12, nil },
+	}
+	h := NewSpacesHandler(q)
+	r := ownerCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine?page=2&limit=5", nil))
+	w := httptest.NewRecorder()
+	h.Mine(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var resp Page[store.Space]
+	decodeJSON(t, w.Body, &resp)
+	if resp.Page != 2 || resp.Limit != 5 {
+		t.Errorf("expected page=2 limit=5, got page=%d limit=%d", resp.Page, resp.Limit)
+	}
+	if resp.Total != 12 {
+		t.Errorf("expected total=12, got %d", resp.Total)
+	}
+	if !resp.HasMore {
+		t.Error("expected has_more=true")
 	}
 }
 

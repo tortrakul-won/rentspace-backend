@@ -36,9 +36,15 @@ type mockStore struct {
 	listSpacesByOwner        func(ctx context.Context, ownerID uuid.UUID) ([]store.Space, error)
 	setSpaceActive           func(ctx context.Context, arg store.SetSpaceActiveParams) (store.Space, error)
 	updateSpace                  func(ctx context.Context, arg store.UpdateSpaceParams) (store.Space, error)
-	getSpaceAvailability         func(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error)
-	upsertSpaceAvailability      func(ctx context.Context, arg store.UpsertSpaceAvailabilityParams) (store.SpaceAvailability, error)
-	deleteSpaceAvailability      func(ctx context.Context, spaceID uuid.UUID) error
+	getSpaceAvailability             func(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error)
+	upsertSpaceAvailability          func(ctx context.Context, arg store.UpsertSpaceAvailabilityParams) (store.SpaceAvailability, error)
+	deleteSpaceAvailability          func(ctx context.Context, spaceID uuid.UUID) error
+	listSpacesPaginated              func(ctx context.Context, arg store.ListSpacesPaginatedParams) ([]store.Space, error)
+	countSpaces                      func(ctx context.Context) (int64, error)
+	listSpacesByOwnerPaginated       func(ctx context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error)
+	countSpacesByOwner               func(ctx context.Context, ownerID uuid.UUID) (int64, error)
+	listBookingsBySpacePaginated     func(ctx context.Context, arg store.ListBookingsBySpacePaginatedParams) ([]store.Booking, error)
+	countBookingsBySpace             func(ctx context.Context, spaceID uuid.UUID) (int64, error)
 	createBooking            func(ctx context.Context, arg store.CreateBookingParams) (store.Booking, error)
 	getBookingByID           func(ctx context.Context, id uuid.UUID) (store.Booking, error)
 	listBookingsByRenter     func(ctx context.Context, renterID uuid.UUID) ([]store.Booking, error)
@@ -155,6 +161,42 @@ func (m *mockStore) DeleteSpaceAvailability(ctx context.Context, spaceID uuid.UU
 		return m.deleteSpaceAvailability(ctx, spaceID)
 	}
 	return errors.New("not implemented")
+}
+func (m *mockStore) ListSpacesPaginated(ctx context.Context, arg store.ListSpacesPaginatedParams) ([]store.Space, error) {
+	if m.listSpacesPaginated != nil {
+		return m.listSpacesPaginated(ctx, arg)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) CountSpaces(ctx context.Context) (int64, error) {
+	if m.countSpaces != nil {
+		return m.countSpaces(ctx)
+	}
+	return 0, errors.New("not implemented")
+}
+func (m *mockStore) ListSpacesByOwnerPaginated(ctx context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error) {
+	if m.listSpacesByOwnerPaginated != nil {
+		return m.listSpacesByOwnerPaginated(ctx, arg)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) CountSpacesByOwner(ctx context.Context, ownerID uuid.UUID) (int64, error) {
+	if m.countSpacesByOwner != nil {
+		return m.countSpacesByOwner(ctx, ownerID)
+	}
+	return 0, errors.New("not implemented")
+}
+func (m *mockStore) ListBookingsBySpacePaginated(ctx context.Context, arg store.ListBookingsBySpacePaginatedParams) ([]store.Booking, error) {
+	if m.listBookingsBySpacePaginated != nil {
+		return m.listBookingsBySpacePaginated(ctx, arg)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) CountBookingsBySpace(ctx context.Context, spaceID uuid.UUID) (int64, error) {
+	if m.countBookingsBySpace != nil {
+		return m.countBookingsBySpace(ctx, spaceID)
+	}
+	return 0, errors.New("not implemented")
 }
 func (m *mockStore) CreateBooking(ctx context.Context, arg store.CreateBookingParams) (store.Booking, error) {
 	if m.createBooking != nil {

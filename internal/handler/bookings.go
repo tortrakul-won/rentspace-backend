@@ -171,12 +171,30 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bookings, err := h.q.ListBookingsBySpace(r.Context(), spaceID)
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+
+	bookings, err := h.q.ListBookingsBySpacePaginated(r.Context(), store.ListBookingsBySpacePaginatedParams{
+		SpaceID: spaceID,
+		Limit:   limit,
+		Offset:  offset,
+	})
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	JSON(w, http.StatusOK, bookings)
+	total, err := h.q.CountBookingsBySpace(r.Context(), spaceID)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, Page[store.Booking]{
+		Data:    bookings,
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: int64(offset)+int64(len(bookings)) < total,
+	})
 }
 
 // UpdateStatus enforces role-based status transitions:
