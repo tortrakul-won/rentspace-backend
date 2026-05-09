@@ -17,6 +17,15 @@ SELECT * FROM spaces
 WHERE is_active = TRUE AND category = @category
 ORDER BY created_at DESC;
 
+-- name: ListSpacesByCategoryPaginated :many
+SELECT * FROM spaces
+WHERE is_active = TRUE AND category = @category
+ORDER BY created_at DESC
+LIMIT @lim OFFSET @off;
+
+-- name: CountSpacesByCategory :one
+SELECT COUNT(*) FROM spaces WHERE is_active = TRUE AND category = @category;
+
 -- name: GetSpaceByID :one
 SELECT * FROM spaces
 WHERE id = $1;

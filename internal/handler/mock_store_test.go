@@ -41,6 +41,8 @@ type mockStore struct {
 	deleteSpaceAvailability          func(ctx context.Context, spaceID uuid.UUID) error
 	listSpacesPaginated              func(ctx context.Context, arg store.ListSpacesPaginatedParams) ([]store.Space, error)
 	countSpaces                      func(ctx context.Context) (int64, error)
+	listSpacesByCategoryPaginated    func(ctx context.Context, arg store.ListSpacesByCategoryPaginatedParams) ([]store.Space, error)
+	countSpacesByCategory            func(ctx context.Context, category store.SpaceCategory) (int64, error)
 	listSpacesByOwnerPaginated       func(ctx context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error)
 	countSpacesByOwner               func(ctx context.Context, ownerID uuid.UUID) (int64, error)
 	listBookingsBySpacePaginated     func(ctx context.Context, arg store.ListBookingsBySpacePaginatedParams) ([]store.Booking, error)
@@ -171,6 +173,18 @@ func (m *mockStore) ListSpacesPaginated(ctx context.Context, arg store.ListSpace
 func (m *mockStore) CountSpaces(ctx context.Context) (int64, error) {
 	if m.countSpaces != nil {
 		return m.countSpaces(ctx)
+	}
+	return 0, errors.New("not implemented")
+}
+func (m *mockStore) ListSpacesByCategoryPaginated(ctx context.Context, arg store.ListSpacesByCategoryPaginatedParams) ([]store.Space, error) {
+	if m.listSpacesByCategoryPaginated != nil {
+		return m.listSpacesByCategoryPaginated(ctx, arg)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) CountSpacesByCategory(ctx context.Context, category store.SpaceCategory) (int64, error) {
+	if m.countSpacesByCategory != nil {
+		return m.countSpacesByCategory(ctx, category)
 	}
 	return 0, errors.New("not implemented")
 }

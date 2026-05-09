@@ -23,16 +23,35 @@ func NewSpacesHandler(q store.Store) *SpacesHandler {
 func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
 	page, limit := parsePagination(r)
 	offset := (page - 1) * limit
+	category := r.URL.Query().Get("category")
 
-	spaces, err := h.q.ListSpacesPaginated(r.Context(), store.ListSpacesPaginatedParams{
-		Limit:  limit,
-		Offset: offset,
-	})
-	if err != nil {
-		ServerError(w, r, err)
-		return
+	var spaces []store.Space
+	var total int64
+	var err error
+
+	if category != "" {
+		cat := store.SpaceCategory(category)
+		spaces, err = h.q.ListSpacesByCategoryPaginated(r.Context(), store.ListSpacesByCategoryPaginatedParams{
+			Category: cat,
+			Lim:      limit,
+			Off:      offset,
+		})
+		if err != nil {
+			ServerError(w, r, err)
+			return
+		}
+		total, err = h.q.CountSpacesByCategory(r.Context(), cat)
+	} else {
+		spaces, err = h.q.ListSpacesPaginated(r.Context(), store.ListSpacesPaginatedParams{
+			Limit:  limit,
+			Offset: offset,
+		})
+		if err != nil {
+			ServerError(w, r, err)
+			return
+		}
+		total, err = h.q.CountSpaces(r.Context())
 	}
-	total, err := h.q.CountSpaces(r.Context())
 	if err != nil {
 		ServerError(w, r, err)
 		return

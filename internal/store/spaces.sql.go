@@ -23,6 +23,17 @@ func (q *Queries) CountSpaces(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countSpacesByCategory = `-- name: CountSpacesByCategory :one
+SELECT COUNT(*) FROM spaces WHERE is_active = TRUE AND category = $1
+`
+
+func (q *Queries) CountSpacesByCategory(ctx context.Context, category SpaceCategory) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSpacesByCategory, category)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSpacesByOwner = `-- name: CountSpacesByOwner :one
 SELECT COUNT(*) FROM spaces WHERE owner_id = $1
 `
@@ -175,6 +186,59 @@ ORDER BY created_at DESC
 
 func (q *Queries) ListSpacesByCategory(ctx context.Context, category SpaceCategory) ([]Space, error) {
 	rows, err := q.db.QueryContext(ctx, listSpacesByCategory, category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Space
+	for rows.Next() {
+		var i Space
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Name,
+			&i.Description,
+			&i.Location,
+			&i.Category,
+			pq.Array(&i.Images),
+			&i.HourlyRate,
+			&i.DailyRate,
+			&i.MinHours,
+			&i.Capacity,
+			pq.Array(&i.Amenities),
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.WeekendSurchargePct,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpacesByCategoryPaginated = `-- name: ListSpacesByCategoryPaginated :many
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct FROM spaces
+WHERE is_active = TRUE AND category = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListSpacesByCategoryPaginatedParams struct {
+	Category SpaceCategory `json:"category"`
+	Off      int32         `json:"off"`
+	Lim      int32         `json:"lim"`
+}
+
+func (q *Queries) ListSpacesByCategoryPaginated(ctx context.Context, arg ListSpacesByCategoryPaginatedParams) ([]Space, error) {
+	rows, err := q.db.QueryContext(ctx, listSpacesByCategoryPaginated, arg.Category, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
