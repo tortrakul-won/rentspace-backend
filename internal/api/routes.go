@@ -71,6 +71,8 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			bookingsHandler := handler.NewBookingsHandler(q)
 			// POST  /bookings             — create a booking (renter profile only; renter_id taken from JWT)
 			r.Post("/bookings", bookingsHandler.Create)
+			// GET   /bookings/mine        — list all bookings for the authenticated renter
+			r.Get("/bookings/mine", bookingsHandler.ListMine)
 			// GET   /bookings/{id}        — get a single booking by ID
 			r.Get("/bookings/{id}", bookingsHandler.Get)
 			// PATCH /bookings/{id}/status — update booking status (pending → confirmed → completed / cancelled)

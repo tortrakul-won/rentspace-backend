@@ -260,6 +260,20 @@ type UpdateStatusRequest struct {
 	Status store.BookingStatus `json:"status"`
 }
 
+func (h *BookingsHandler) ListMine(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "renter" {
+		Error(w, http.StatusForbidden, "only renter profiles can list their bookings")
+		return
+	}
+	bookings, err := h.q.ListBookingsByRenter(r.Context(), claims.ProfileID)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, nonNil(bookings))
+}
+
 // calculatePrice derives the total in satang from space rates and booking duration.
 // Bookings under 24h are billed hourly (rounded up, minimum ceil(min_minutes/60)).
 // Bookings 24h or longer are billed daily (rounded up to the next full day).
