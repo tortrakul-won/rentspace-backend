@@ -3,10 +3,54 @@ SELECT * FROM spaces
 WHERE is_active = TRUE
 ORDER BY created_at DESC;
 
+-- name: ListSpacesPaginated :many
+SELECT * FROM spaces
+WHERE is_active = TRUE
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountSpaces :one
+SELECT COUNT(*) FROM spaces WHERE is_active = TRUE;
+
 -- name: ListSpacesByCategory :many
 SELECT * FROM spaces
 WHERE is_active = TRUE AND category = @category
 ORDER BY created_at DESC;
+
+-- name: ListSpacesPaginatedExcludeUser :many
+SELECT * FROM spaces
+WHERE is_active = TRUE
+  AND owner_id NOT IN (SELECT id FROM profiles WHERE user_id = $1)
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountSpacesExcludeUser :one
+SELECT COUNT(*) FROM spaces
+WHERE is_active = TRUE
+  AND owner_id NOT IN (SELECT id FROM profiles WHERE user_id = $1);
+
+-- name: ListSpacesByCategoryPaginatedExcludeUser :many
+SELECT * FROM spaces
+WHERE is_active = TRUE
+  AND category = @category
+  AND owner_id NOT IN (SELECT id FROM profiles WHERE user_id = @user_id)
+ORDER BY created_at DESC
+LIMIT @lim OFFSET @off;
+
+-- name: CountSpacesByCategoryExcludeUser :one
+SELECT COUNT(*) FROM spaces
+WHERE is_active = TRUE
+  AND category = @category
+  AND owner_id NOT IN (SELECT id FROM profiles WHERE user_id = @user_id);
+
+-- name: ListSpacesByCategoryPaginated :many
+SELECT * FROM spaces
+WHERE is_active = TRUE AND category = @category
+ORDER BY created_at DESC
+LIMIT @lim OFFSET @off;
+
+-- name: CountSpacesByCategory :one
+SELECT COUNT(*) FROM spaces WHERE is_active = TRUE AND category = @category;
 
 -- name: GetSpaceByID :one
 SELECT * FROM spaces
@@ -17,8 +61,17 @@ SELECT * FROM spaces
 WHERE owner_id = $1
 ORDER BY created_at DESC;
 
+-- name: ListSpacesByOwnerPaginated :many
+SELECT * FROM spaces
+WHERE owner_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountSpacesByOwner :one
+SELECT COUNT(*) FROM spaces WHERE owner_id = $1;
+
 -- name: CreateSpace :one
-INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_hours, capacity, amenities, weekend_surcharge_pct)
+INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, weekend_surcharge_pct)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
@@ -31,7 +84,7 @@ UPDATE spaces SET
   images                = $6,
   hourly_rate           = $7,
   daily_rate            = $8,
-  min_hours             = $9,
+  min_minutes           = $9,
   capacity              = $10,
   amenities             = $11,
   weekend_surcharge_pct = $12,
@@ -43,3 +96,7 @@ RETURNING *;
 UPDATE spaces SET is_active = $2, updated_at = NOW()
 WHERE id = $1 AND owner_id = $3
 RETURNING *;
+
+-- name: DeleteSpace :exec
+DELETE FROM spaces
+WHERE id = $1 AND owner_id = $2;

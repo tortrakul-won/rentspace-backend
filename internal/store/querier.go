@@ -12,10 +12,17 @@ import (
 
 type Querier interface {
 	CheckOverlappingBookings(ctx context.Context, arg CheckOverlappingBookingsParams) (int64, error)
+	CountBookingsBySpace(ctx context.Context, spaceID uuid.UUID) (int64, error)
+	CountSpaces(ctx context.Context) (int64, error)
+	CountSpacesByCategory(ctx context.Context, category SpaceCategory) (int64, error)
+	CountSpacesByCategoryExcludeUser(ctx context.Context, arg CountSpacesByCategoryExcludeUserParams) (int64, error)
+	CountSpacesByOwner(ctx context.Context, ownerID uuid.UUID) (int64, error)
+	CountSpacesExcludeUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteSpace(ctx context.Context, arg DeleteSpaceParams) error
 	DeleteSpaceAvailability(ctx context.Context, spaceID uuid.UUID) error
 	GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, error)
 	GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error)
@@ -27,9 +34,15 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) ([]Booking, error)
 	ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([]Booking, error)
+	ListBookingsBySpacePaginated(ctx context.Context, arg ListBookingsBySpacePaginatedParams) ([]Booking, error)
 	ListSpaces(ctx context.Context) ([]Space, error)
 	ListSpacesByCategory(ctx context.Context, category SpaceCategory) ([]Space, error)
+	ListSpacesByCategoryPaginated(ctx context.Context, arg ListSpacesByCategoryPaginatedParams) ([]Space, error)
+	ListSpacesByCategoryPaginatedExcludeUser(ctx context.Context, arg ListSpacesByCategoryPaginatedExcludeUserParams) ([]Space, error)
 	ListSpacesByOwner(ctx context.Context, ownerID uuid.UUID) ([]Space, error)
+	ListSpacesByOwnerPaginated(ctx context.Context, arg ListSpacesByOwnerPaginatedParams) ([]Space, error)
+	ListSpacesPaginated(ctx context.Context, arg ListSpacesPaginatedParams) ([]Space, error)
+	ListSpacesPaginatedExcludeUser(ctx context.Context, arg ListSpacesPaginatedExcludeUserParams) ([]Space, error)
 	SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) (Space, error)
 	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
 	UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space, error)

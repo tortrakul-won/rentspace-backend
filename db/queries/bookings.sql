@@ -16,6 +16,15 @@ SELECT * FROM bookings
 WHERE space_id = $1
 ORDER BY start_time DESC;
 
+-- name: ListBookingsBySpacePaginated :many
+SELECT * FROM bookings
+WHERE space_id = $1
+ORDER BY start_time DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountBookingsBySpace :one
+SELECT COUNT(*) FROM bookings WHERE space_id = $1;
+
 -- name: UpdateBookingStatus :one
 UPDATE bookings SET status = $2, updated_at = NOW()
 WHERE id = $1

@@ -1,0 +1,2 @@
+-- Postgres does not support removing enum values; down migration is a no-op.
+-- To fully revert, drop and recreate the type (requires no rows using 'Other').

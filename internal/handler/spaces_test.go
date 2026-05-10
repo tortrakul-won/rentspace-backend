@@ -29,7 +29,7 @@ func stubSpace() store.Space {
 		Images:              []string{},
 		HourlyRate:          500,
 		DailyRate:           3000,
-		MinHours:            2,
+		MinMinutes:          120,
 		Capacity:            10,
 		Amenities:           []string{"wifi"},
 		WeekendSurchargePct: 20,
@@ -55,6 +55,80 @@ func renterCtx(r *http.Request) *http.Request {
 	return r.WithContext(middleware.ContextWithClaims(r.Context(), claims))
 }
 
+// --- Mine ---
+
+func TestSpacesHandler_Mine_Success(t *testing.T) {
+	q := &mockStore{
+		listSpacesByOwnerPaginated: func(_ context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error) {
+			if arg.OwnerID != testProfileID {
+				t.Errorf("expected ownerID=%s, got %s", testProfileID, arg.OwnerID)
+			}
+			return []store.Space{stubSpace()}, nil
+		},
+		countSpacesByOwner: func(_ context.Context, _ uuid.UUID) (int64, error) { return 1, nil },
+	}
+	h := NewSpacesHandler(q)
+	r := ownerCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine", nil))
+	w := httptest.NewRecorder()
+	h.Mine(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var resp Page[store.Space]
+	decodeJSON(t, w.Body, &resp)
+	if len(resp.Data) != 1 {
+		t.Errorf("expected 1 space, got %d", len(resp.Data))
+	}
+	if resp.Total != 1 {
+		t.Errorf("expected total=1, got %d", resp.Total)
+	}
+}
+
+func TestSpacesHandler_Mine_Pagination(t *testing.T) {
+	q := &mockStore{
+		listSpacesByOwnerPaginated: func(_ context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error) {
+			if arg.Limit != 5 {
+				t.Errorf("expected limit=5, got %d", arg.Limit)
+			}
+			if arg.Offset != 5 {
+				t.Errorf("expected offset=5 (page 2), got %d", arg.Offset)
+			}
+			return []store.Space{stubSpace()}, nil
+		},
+		countSpacesByOwner: func(_ context.Context, _ uuid.UUID) (int64, error) { return 12, nil },
+	}
+	h := NewSpacesHandler(q)
+	r := ownerCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine?page=2&limit=5", nil))
+	w := httptest.NewRecorder()
+	h.Mine(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	var resp Page[store.Space]
+	decodeJSON(t, w.Body, &resp)
+	if resp.Page != 2 || resp.Limit != 5 {
+		t.Errorf("expected page=2 limit=5, got page=%d limit=%d", resp.Page, resp.Limit)
+	}
+	if resp.Total != 12 {
+		t.Errorf("expected total=12, got %d", resp.Total)
+	}
+	if !resp.HasMore {
+		t.Error("expected has_more=true")
+	}
+}
+
+func TestSpacesHandler_Mine_ForbiddenForRenter(t *testing.T) {
+	h := NewSpacesHandler(&mockStore{})
+	r := renterCtx(httptest.NewRequest(http.MethodGet, "/spaces/mine", nil))
+	w := httptest.NewRecorder()
+	h.Mine(w, r)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+}
+
 // --- Create ---
 
 func TestSpacesHandler_Create_Success(t *testing.T) {
@@ -71,7 +145,7 @@ func TestSpacesHandler_Create_Success(t *testing.T) {
 	body, _ := json.Marshal(map[string]any{
 		"name": "Test Studio", "description": "A nice studio", "location": "Bangkok",
 		"category": "Studio", "images": []string{}, "hourly_rate": 500, "daily_rate": 3000,
-		"min_hours": 2, "capacity": 10, "amenities": []string{"wifi"}, "weekend_surcharge_pct": 20,
+		"min_minutes": 120, "capacity": 10, "amenities": []string{"wifi"}, "weekend_surcharge_pct": 20,
 	})
 	r := ownerCtx(httptest.NewRequest(http.MethodPost, "/spaces", bytes.NewReader(body)))
 	w := httptest.NewRecorder()
@@ -100,13 +174,10 @@ func TestSpacesHandler_Create_ForbiddenForRenter(t *testing.T) {
 // --- GetAvailability ---
 
 func TestSpacesHandler_GetAvailability_Success(t *testing.T) {
-	openTime, _ := time.Parse("15:04", "09:00")
-	closeTime, _ := time.Parse("15:04", "18:00")
-
 	q := &mockStore{
 		getSpaceAvailability: func(_ context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error) {
 			return []store.SpaceAvailability{
-				{ID: uuid.New(), SpaceID: spaceID, DayOfWeek: 1, OpenTime: openTime, CloseTime: closeTime},
+				{ID: uuid.New(), SpaceID: spaceID, DayOfWeek: 1, OpenTime: "09:00", CloseTime: "18:00"},
 			}, nil
 		},
 	}
@@ -135,9 +206,6 @@ func TestSpacesHandler_GetAvailability_Success(t *testing.T) {
 // --- SetAvailability ---
 
 func TestSpacesHandler_SetAvailability_Success(t *testing.T) {
-	openTime, _ := time.Parse("15:04", "09:00")
-	closeTime, _ := time.Parse("15:04", "18:00")
-
 	upsertCalled := 0
 	q := &mockStore{
 		deleteSpaceAvailability: func(_ context.Context, _ uuid.UUID) error { return nil },
@@ -147,8 +215,8 @@ func TestSpacesHandler_SetAvailability_Success(t *testing.T) {
 		},
 		getSpaceAvailability: func(_ context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error) {
 			return []store.SpaceAvailability{
-				{SpaceID: spaceID, DayOfWeek: 1, OpenTime: openTime, CloseTime: closeTime},
-				{SpaceID: spaceID, DayOfWeek: 2, OpenTime: openTime, CloseTime: closeTime},
+				{SpaceID: spaceID, DayOfWeek: 1, OpenTime: "09:00", CloseTime: "18:00"},
+				{SpaceID: spaceID, DayOfWeek: 2, OpenTime: "09:00", CloseTime: "18:00"},
 			}, nil
 		},
 	}

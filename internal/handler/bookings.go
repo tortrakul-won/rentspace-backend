@@ -72,13 +72,13 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hours := endTime.Sub(startTime).Hours()
-	if hours < float64(space.MinHours) {
+	if hours*60 < float64(space.MinMinutes) {
 		Error(w, http.StatusBadRequest, "booking duration is below the space minimum")
 		return
 	}
 
 	// calculate price from space rates — client cannot influence this
-	totalPrice := calculatePrice(hours, space.HourlyRate, space.DailyRate, space.MinHours)
+	totalPrice := calculatePrice(hours, space.HourlyRate, space.DailyRate, space.MinMinutes)
 	platformFee := int32(0) // TODO: define platform fee rate in config
 
 	// overlap check + insert are atomic: two concurrent requests cannot both pass
@@ -171,12 +171,30 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bookings, err := h.q.ListBookingsBySpace(r.Context(), spaceID)
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+
+	bookings, err := h.q.ListBookingsBySpacePaginated(r.Context(), store.ListBookingsBySpacePaginatedParams{
+		SpaceID: spaceID,
+		Limit:   limit,
+		Offset:  offset,
+	})
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	JSON(w, http.StatusOK, bookings)
+	total, err := h.q.CountBookingsBySpace(r.Context(), spaceID)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, Page[store.Booking]{
+		Data:    nonNil(bookings),
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: int64(offset)+int64(len(bookings)) < total,
+	})
 }
 
 // UpdateStatus enforces role-based status transitions:
@@ -243,13 +261,14 @@ type UpdateStatusRequest struct {
 }
 
 // calculatePrice derives the total in satang from space rates and booking duration.
-// Bookings under 24h are billed hourly (rounded up, minimum min_hours).
+// Bookings under 24h are billed hourly (rounded up, minimum ceil(min_minutes/60)).
 // Bookings 24h or longer are billed daily (rounded up to the next full day).
-func calculatePrice(hours float64, hourlyRate, dailyRate, minHours int32) int32 {
+func calculatePrice(hours float64, hourlyRate, dailyRate, minMinutes int32) int32 {
 	if hours < 24 {
 		billable := int32(math.Ceil(hours))
-		if billable < minHours {
-			billable = minHours
+		minBillableHours := int32(math.Ceil(float64(minMinutes) / 60))
+		if billable < minBillableHours {
+			billable = minBillableHours
 		}
 		return billable * hourlyRate
 	}

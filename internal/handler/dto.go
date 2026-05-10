@@ -81,7 +81,7 @@ type CreateSpaceRequest struct {
 	Images              []string `json:"images"`
 	HourlyRate          int32    `json:"hourly_rate"`
 	DailyRate           int32    `json:"daily_rate"`
-	MinHours            int32    `json:"min_hours"`
+	MinMinutes          int32    `json:"min_minutes"`
 	Capacity            int32    `json:"capacity"`
 	Amenities           []string `json:"amenities"`
 	WeekendSurchargePct int32    `json:"weekend_surcharge_pct"`
@@ -97,7 +97,7 @@ type SpaceResponse struct {
 	Images              []string `json:"images"`
 	HourlyRate          int32    `json:"hourly_rate"`
 	DailyRate           int32    `json:"daily_rate"`
-	MinHours            int32    `json:"min_hours"`
+	MinMinutes          int32    `json:"min_minutes"`
 	Capacity            int32    `json:"capacity"`
 	Amenities           []string `json:"amenities"`
 	WeekendSurchargePct int32    `json:"weekend_surcharge_pct"`
@@ -142,4 +142,12 @@ type BookingResponse struct {
 
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+type Page[T any] struct {
+	Data    []T   `json:"data"`
+	Total   int64 `json:"total"`
+	Page    int32 `json:"page"`
+	Limit   int32 `json:"limit"`
+	HasMore bool  `json:"has_more"`
 }

@@ -2,9 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -21,12 +19,115 @@ func NewSpacesHandler(q store.Store) *SpacesHandler {
 }
 
 func (h *SpacesHandler) List(w http.ResponseWriter, r *http.Request) {
-	spaces, err := h.q.ListSpaces(r.Context())
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+	category := r.URL.Query().Get("category")
+	claims := middleware.ClaimsFromCtx(r.Context())
+
+	var spaces []store.Space
+	var total int64
+	var err error
+
+	if claims != nil {
+		// Authenticated: exclude all spaces owned by any profile of this user.
+		if category != "" {
+			cat := store.SpaceCategory(category)
+			spaces, err = h.q.ListSpacesByCategoryPaginatedExcludeUser(r.Context(), store.ListSpacesByCategoryPaginatedExcludeUserParams{
+				Category: cat,
+				UserID:   claims.UserID,
+				Lim:      limit,
+				Off:      offset,
+			})
+			if err != nil {
+				ServerError(w, r, err)
+				return
+			}
+			total, err = h.q.CountSpacesByCategoryExcludeUser(r.Context(), store.CountSpacesByCategoryExcludeUserParams{
+				Category: cat,
+				UserID:   claims.UserID,
+			})
+		} else {
+			spaces, err = h.q.ListSpacesPaginatedExcludeUser(r.Context(), store.ListSpacesPaginatedExcludeUserParams{
+				UserID: claims.UserID,
+				Limit:  limit,
+				Offset: offset,
+			})
+			if err != nil {
+				ServerError(w, r, err)
+				return
+			}
+			total, err = h.q.CountSpacesExcludeUser(r.Context(), claims.UserID)
+		}
+	} else {
+		// Unauthenticated: show all active spaces.
+		if category != "" {
+			cat := store.SpaceCategory(category)
+			spaces, err = h.q.ListSpacesByCategoryPaginated(r.Context(), store.ListSpacesByCategoryPaginatedParams{
+				Category: cat,
+				Lim:      limit,
+				Off:      offset,
+			})
+			if err != nil {
+				ServerError(w, r, err)
+				return
+			}
+			total, err = h.q.CountSpacesByCategory(r.Context(), cat)
+		} else {
+			spaces, err = h.q.ListSpacesPaginated(r.Context(), store.ListSpacesPaginatedParams{
+				Limit:  limit,
+				Offset: offset,
+			})
+			if err != nil {
+				ServerError(w, r, err)
+				return
+			}
+			total, err = h.q.CountSpaces(r.Context())
+		}
+	}
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	JSON(w, http.StatusOK, spaces)
+	JSON(w, http.StatusOK, Page[store.Space]{
+		Data:    nonNil(spaces),
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: int64(offset)+int64(len(spaces)) < total,
+	})
+}
+
+// Mine returns all spaces (active and inactive) owned by the authenticated owner profile.
+func (h *SpacesHandler) Mine(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can list their spaces")
+		return
+	}
+	page, limit := parsePagination(r)
+	offset := (page - 1) * limit
+
+	spaces, err := h.q.ListSpacesByOwnerPaginated(r.Context(), store.ListSpacesByOwnerPaginatedParams{
+		OwnerID: claims.ProfileID,
+		Limit:   limit,
+		Offset:  offset,
+	})
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	total, err := h.q.CountSpacesByOwner(r.Context(), claims.ProfileID)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	JSON(w, http.StatusOK, Page[store.Space]{
+		Data:    nonNil(spaces),
+		Total:   total,
+		Page:    page,
+		Limit:   limit,
+		HasMore: int64(offset)+int64(len(spaces)) < total,
+	})
 }
 
 func (h *SpacesHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +167,7 @@ func (h *SpacesHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Images:              body.Images,
 		HourlyRate:          body.HourlyRate,
 		DailyRate:           body.DailyRate,
-		MinHours:            body.MinHours,
+		MinMinutes:          body.MinMinutes,
 		Capacity:            body.Capacity,
 		Amenities:           body.Amenities,
 		WeekendSurchargePct: body.WeekendSurchargePct,
@@ -107,7 +208,7 @@ func (h *SpacesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Images:              body.Images,
 		HourlyRate:          body.HourlyRate,
 		DailyRate:           body.DailyRate,
-		MinHours:            body.MinHours,
+		MinMinutes:          body.MinMinutes,
 		Capacity:            body.Capacity,
 		Amenities:           body.Amenities,
 		WeekendSurchargePct: body.WeekendSurchargePct,
@@ -144,6 +245,52 @@ func (h *SpacesHandler) Deactivate(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, space)
 }
 
+func (h *SpacesHandler) Reactivate(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can reactivate spaces")
+		return
+	}
+
+	id, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	space, err := h.q.SetSpaceActive(r.Context(), store.SetSpaceActiveParams{
+		ID:       id,
+		IsActive: true,
+		OwnerID:  claims.ProfileID,
+	})
+	if err != nil {
+		Error(w, http.StatusNotFound, "space not found or not owned by you")
+		return
+	}
+	JSON(w, http.StatusOK, space)
+}
+
+func (h *SpacesHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can delete spaces")
+		return
+	}
+
+	id, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if err := h.q.DeleteSpace(r.Context(), store.DeleteSpaceParams{
+		ID:      id,
+		OwnerID: claims.ProfileID,
+	}); err != nil {
+		Error(w, http.StatusNotFound, "space not found or not owned by you")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // GetAvailability returns the weekly schedule for a space.
 func (h *SpacesHandler) GetAvailability(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
@@ -160,8 +307,8 @@ func (h *SpacesHandler) GetAvailability(w http.ResponseWriter, r *http.Request) 
 	for _, s := range slots {
 		resp = append(resp, AvailabilitySlot{
 			DayOfWeek: int(s.DayOfWeek),
-			OpenTime:  s.OpenTime.Format("15:04"),
-			CloseTime: s.CloseTime.Format("15:04"),
+			OpenTime:  s.OpenTime,
+			CloseTime: s.CloseTime,
 		})
 	}
 	JSON(w, http.StatusOK, resp)
@@ -192,19 +339,11 @@ func (h *SpacesHandler) SetAvailability(w http.ResponseWriter, r *http.Request) 
 			return err
 		}
 		for _, slot := range body.Schedule {
-			open, parseErr := time.Parse("15:04", slot.OpenTime)
-			if parseErr != nil {
-				return fmt.Errorf("invalid open_time %q: %w", slot.OpenTime, parseErr)
-			}
-			close, parseErr := time.Parse("15:04", slot.CloseTime)
-			if parseErr != nil {
-				return fmt.Errorf("invalid close_time %q: %w", slot.CloseTime, parseErr)
-			}
 			if _, err := q.UpsertSpaceAvailability(r.Context(), store.UpsertSpaceAvailabilityParams{
 				SpaceID:   id,
 				DayOfWeek: int16(slot.DayOfWeek),
-				OpenTime:  open,
-				CloseTime: close,
+				OpenTime:  slot.OpenTime,
+				CloseTime: slot.CloseTime,
 			}); err != nil {
 				return err
 			}
@@ -225,8 +364,8 @@ func (h *SpacesHandler) SetAvailability(w http.ResponseWriter, r *http.Request) 
 	for _, s := range slots {
 		resp = append(resp, AvailabilitySlot{
 			DayOfWeek: int(s.DayOfWeek),
-			OpenTime:  s.OpenTime.Format("15:04"),
-			CloseTime: s.CloseTime.Format("15:04"),
+			OpenTime:  s.OpenTime,
+			CloseTime: s.CloseTime,
 		})
 	}
 	JSON(w, http.StatusOK, resp)

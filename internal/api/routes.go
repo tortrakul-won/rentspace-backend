@@ -37,6 +37,12 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 		r.Post("/auth/login", authHandler.Login)
 
 		// all routes below require a valid JWT in Authorization: Bearer <token>
+		spacesHandler := handler.NewSpacesHandler(q)
+		// Public reads — OptionalAuth so authenticated users get personalised results (own spaces excluded).
+		r.With(appMiddleware.OptionalAuth(jwtSecret)).Get("/spaces", spacesHandler.List)
+		r.Get("/spaces/{id}", spacesHandler.Get)
+		r.Get("/spaces/{id}/availability", spacesHandler.GetAvailability)
+
 		r.Group(func(r chi.Router) {
 			r.Use(appMiddleware.RequireAuth(jwtSecret))
 
@@ -47,19 +53,18 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			// POST /auth/profiles       — add a second profile (owner or renter) to the account
 			r.Post("/auth/profiles", authHandler.AddProfile)
 
-			spacesHandler := handler.NewSpacesHandler(q)
-			// GET    /spaces       — list all active spaces
-			r.Get("/spaces", spacesHandler.List)
-			// GET    /spaces/{id}  — get a single space by ID
-			r.Get("/spaces/{id}", spacesHandler.Get)
+			// GET    /spaces/mine  — list all spaces owned by the authenticated owner profile (active + inactive)
+			r.Get("/spaces/mine", spacesHandler.Mine)
 			// POST   /spaces       — create a space (owner profile only; owner_id taken from JWT)
 			r.Post("/spaces", spacesHandler.Create)
 			// PUT    /spaces/{id}  — update a space (owner profile only)
 			r.Put("/spaces/{id}", spacesHandler.Update)
 			// DELETE /spaces/{id}             — deactivate a space (owner profile only)
 			r.Delete("/spaces/{id}", spacesHandler.Deactivate)
-			// GET    /spaces/{id}/availability — get weekly open hours schedule
-			r.Get("/spaces/{id}/availability", spacesHandler.GetAvailability)
+			// POST   /spaces/{id}/reactivate  — reactivate a deactivated space (owner only)
+			r.Post("/spaces/{id}/reactivate", spacesHandler.Reactivate)
+			// DELETE /spaces/{id}/permanent   — permanently delete a space (owner only)
+			r.Delete("/spaces/{id}/permanent", spacesHandler.Delete)
 			// PUT    /spaces/{id}/availability — replace weekly schedule (owner only)
 			r.Put("/spaces/{id}/availability", spacesHandler.SetAvailability)
 

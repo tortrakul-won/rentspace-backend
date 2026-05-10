@@ -33,6 +33,17 @@ func (q *Queries) CheckOverlappingBookings(ctx context.Context, arg CheckOverlap
 	return count, err
 }
 
+const countBookingsBySpace = `-- name: CountBookingsBySpace :one
+SELECT COUNT(*) FROM bookings WHERE space_id = $1
+`
+
+func (q *Queries) CountBookingsBySpace(ctx context.Context, spaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countBookingsBySpace, spaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBooking = `-- name: CreateBooking :one
 INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -143,6 +154,53 @@ ORDER BY start_time DESC
 
 func (q *Queries) ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([]Booking, error) {
 	rows, err := q.db.QueryContext(ctx, listBookingsBySpace, spaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBookingsBySpacePaginated = `-- name: ListBookingsBySpacePaginated :many
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings
+WHERE space_id = $1
+ORDER BY start_time DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListBookingsBySpacePaginatedParams struct {
+	SpaceID uuid.UUID `json:"space_id"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+}
+
+func (q *Queries) ListBookingsBySpacePaginated(ctx context.Context, arg ListBookingsBySpacePaginatedParams) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, listBookingsBySpacePaginated, arg.SpaceID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -48,6 +48,30 @@ func RequireAuth(secret string) func(http.Handler) http.Handler {
 	}
 }
 
+// OptionalAuth reads the JWT if present and valid, sets claims in context, then always continues.
+// Handlers can call ClaimsFromCtx — nil means unauthenticated.
+func OptionalAuth(secret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			auth := r.Header.Get("Authorization")
+			if strings.HasPrefix(auth, "Bearer ") {
+				tokenStr := strings.TrimPrefix(auth, "Bearer ")
+				claims := &Claims{}
+				token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+					if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+						return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+					}
+					return []byte(secret), nil
+				})
+				if err == nil && token.Valid {
+					r = r.WithContext(context.WithValue(r.Context(), claimsKey, claims))
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func ClaimsFromCtx(ctx context.Context) *Claims {
 	c, _ := ctx.Value(claimsKey).(*Claims)
 	return c
