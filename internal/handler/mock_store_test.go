@@ -36,13 +36,18 @@ type mockStore struct {
 	listSpacesByOwner        func(ctx context.Context, ownerID uuid.UUID) ([]store.Space, error)
 	setSpaceActive           func(ctx context.Context, arg store.SetSpaceActiveParams) (store.Space, error)
 	updateSpace                  func(ctx context.Context, arg store.UpdateSpaceParams) (store.Space, error)
+	deleteSpace                      func(ctx context.Context, arg store.DeleteSpaceParams) error
 	getSpaceAvailability             func(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error)
 	upsertSpaceAvailability          func(ctx context.Context, arg store.UpsertSpaceAvailabilityParams) (store.SpaceAvailability, error)
 	deleteSpaceAvailability          func(ctx context.Context, spaceID uuid.UUID) error
-	listSpacesPaginated              func(ctx context.Context, arg store.ListSpacesPaginatedParams) ([]store.Space, error)
-	countSpaces                      func(ctx context.Context) (int64, error)
-	listSpacesByCategoryPaginated    func(ctx context.Context, arg store.ListSpacesByCategoryPaginatedParams) ([]store.Space, error)
-	countSpacesByCategory            func(ctx context.Context, category store.SpaceCategory) (int64, error)
+	listSpacesPaginated                          func(ctx context.Context, arg store.ListSpacesPaginatedParams) ([]store.Space, error)
+	countSpaces                                  func(ctx context.Context) (int64, error)
+	listSpacesPaginatedExcludeUser               func(ctx context.Context, arg store.ListSpacesPaginatedExcludeUserParams) ([]store.Space, error)
+	countSpacesExcludeUser                       func(ctx context.Context, userID uuid.UUID) (int64, error)
+	listSpacesByCategoryPaginated                func(ctx context.Context, arg store.ListSpacesByCategoryPaginatedParams) ([]store.Space, error)
+	countSpacesByCategory                        func(ctx context.Context, category store.SpaceCategory) (int64, error)
+	listSpacesByCategoryPaginatedExcludeUser     func(ctx context.Context, arg store.ListSpacesByCategoryPaginatedExcludeUserParams) ([]store.Space, error)
+	countSpacesByCategoryExcludeUser             func(ctx context.Context, arg store.CountSpacesByCategoryExcludeUserParams) (int64, error)
 	listSpacesByOwnerPaginated       func(ctx context.Context, arg store.ListSpacesByOwnerPaginatedParams) ([]store.Space, error)
 	countSpacesByOwner               func(ctx context.Context, ownerID uuid.UUID) (int64, error)
 	listBookingsBySpacePaginated     func(ctx context.Context, arg store.ListBookingsBySpacePaginatedParams) ([]store.Booking, error)
@@ -146,6 +151,12 @@ func (m *mockStore) UpdateSpace(ctx context.Context, arg store.UpdateSpaceParams
 	}
 	return store.Space{}, errors.New("not implemented")
 }
+func (m *mockStore) DeleteSpace(ctx context.Context, arg store.DeleteSpaceParams) error {
+	if m.deleteSpace != nil {
+		return m.deleteSpace(ctx, arg)
+	}
+	return errors.New("not implemented")
+}
 func (m *mockStore) GetSpaceAvailability(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error) {
 	if m.getSpaceAvailability != nil {
 		return m.getSpaceAvailability(ctx, spaceID)
@@ -173,6 +184,30 @@ func (m *mockStore) ListSpacesPaginated(ctx context.Context, arg store.ListSpace
 func (m *mockStore) CountSpaces(ctx context.Context) (int64, error) {
 	if m.countSpaces != nil {
 		return m.countSpaces(ctx)
+	}
+	return 0, errors.New("not implemented")
+}
+func (m *mockStore) ListSpacesPaginatedExcludeUser(ctx context.Context, arg store.ListSpacesPaginatedExcludeUserParams) ([]store.Space, error) {
+	if m.listSpacesPaginatedExcludeUser != nil {
+		return m.listSpacesPaginatedExcludeUser(ctx, arg)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) CountSpacesExcludeUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	if m.countSpacesExcludeUser != nil {
+		return m.countSpacesExcludeUser(ctx, userID)
+	}
+	return 0, errors.New("not implemented")
+}
+func (m *mockStore) ListSpacesByCategoryPaginatedExcludeUser(ctx context.Context, arg store.ListSpacesByCategoryPaginatedExcludeUserParams) ([]store.Space, error) {
+	if m.listSpacesByCategoryPaginatedExcludeUser != nil {
+		return m.listSpacesByCategoryPaginatedExcludeUser(ctx, arg)
+	}
+	return nil, errors.New("not implemented")
+}
+func (m *mockStore) CountSpacesByCategoryExcludeUser(ctx context.Context, arg store.CountSpacesByCategoryExcludeUserParams) (int64, error) {
+	if m.countSpacesByCategoryExcludeUser != nil {
+		return m.countSpacesByCategoryExcludeUser(ctx, arg)
 	}
 	return 0, errors.New("not implemented")
 }

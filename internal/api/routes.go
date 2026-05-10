@@ -38,11 +38,9 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 
 		// all routes below require a valid JWT in Authorization: Bearer <token>
 		spacesHandler := handler.NewSpacesHandler(q)
-		// GET /spaces       — list active spaces (public)
-		r.Get("/spaces", spacesHandler.List)
-		// GET /spaces/{id}  — get a single space (public)
+		// Public reads — OptionalAuth so authenticated users get personalised results (own spaces excluded).
+		r.With(appMiddleware.OptionalAuth(jwtSecret)).Get("/spaces", spacesHandler.List)
 		r.Get("/spaces/{id}", spacesHandler.Get)
-		// GET /spaces/{id}/availability — get weekly schedule (public)
 		r.Get("/spaces/{id}/availability", spacesHandler.GetAvailability)
 
 		r.Group(func(r chi.Router) {
@@ -63,6 +61,10 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Put("/spaces/{id}", spacesHandler.Update)
 			// DELETE /spaces/{id}             — deactivate a space (owner profile only)
 			r.Delete("/spaces/{id}", spacesHandler.Deactivate)
+			// POST   /spaces/{id}/reactivate  — reactivate a deactivated space (owner only)
+			r.Post("/spaces/{id}/reactivate", spacesHandler.Reactivate)
+			// DELETE /spaces/{id}/permanent   — permanently delete a space (owner only)
+			r.Delete("/spaces/{id}/permanent", spacesHandler.Delete)
 			// PUT    /spaces/{id}/availability — replace weekly schedule (owner only)
 			r.Put("/spaces/{id}/availability", spacesHandler.SetAvailability)
 

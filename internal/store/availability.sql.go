@@ -7,7 +7,6 @@ package store
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -69,8 +68,8 @@ RETURNING id, space_id, day_of_week, open_time, close_time
 type UpsertSpaceAvailabilityParams struct {
 	SpaceID   uuid.UUID `json:"space_id"`
 	DayOfWeek int16     `json:"day_of_week"`
-	OpenTime  time.Time `json:"open_time"`
-	CloseTime time.Time `json:"close_time"`
+	OpenTime  string    `json:"open_time"`
+	CloseTime string    `json:"close_time"`
 }
 
 func (q *Queries) UpsertSpaceAvailability(ctx context.Context, arg UpsertSpaceAvailabilityParams) (SpaceAvailability, error) {

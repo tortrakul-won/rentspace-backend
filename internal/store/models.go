@@ -108,6 +108,7 @@ const (
 	SpaceCategoryGarden  SpaceCategory = "Garden"
 	SpaceCategoryOffice  SpaceCategory = "Office"
 	SpaceCategoryCaf     SpaceCategory = "Café"
+	SpaceCategoryOther   SpaceCategory = "Other"
 )
 
 func (e *SpaceCategory) Scan(src interface{}) error {
@@ -181,7 +182,7 @@ type Space struct {
 	Images              []string      `json:"images"`
 	HourlyRate          int32         `json:"hourly_rate"`
 	DailyRate           int32         `json:"daily_rate"`
-	MinHours            int32         `json:"min_hours"`
+	MinMinutes          int32         `json:"min_minutes"`
 	Capacity            int32         `json:"capacity"`
 	Amenities           []string      `json:"amenities"`
 	IsActive            bool          `json:"is_active"`
@@ -194,8 +195,8 @@ type SpaceAvailability struct {
 	ID        uuid.UUID `json:"id"`
 	SpaceID   uuid.UUID `json:"space_id"`
 	DayOfWeek int16     `json:"day_of_week"`
-	OpenTime  time.Time `json:"open_time"`
-	CloseTime time.Time `json:"close_time"`
+	OpenTime  string    `json:"open_time"`
+	CloseTime string    `json:"close_time"`
 }
 
 type User struct {

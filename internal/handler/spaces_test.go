@@ -29,7 +29,7 @@ func stubSpace() store.Space {
 		Images:              []string{},
 		HourlyRate:          500,
 		DailyRate:           3000,
-		MinHours:            2,
+		MinMinutes:          120,
 		Capacity:            10,
 		Amenities:           []string{"wifi"},
 		WeekendSurchargePct: 20,
@@ -145,7 +145,7 @@ func TestSpacesHandler_Create_Success(t *testing.T) {
 	body, _ := json.Marshal(map[string]any{
 		"name": "Test Studio", "description": "A nice studio", "location": "Bangkok",
 		"category": "Studio", "images": []string{}, "hourly_rate": 500, "daily_rate": 3000,
-		"min_hours": 2, "capacity": 10, "amenities": []string{"wifi"}, "weekend_surcharge_pct": 20,
+		"min_minutes": 120, "capacity": 10, "amenities": []string{"wifi"}, "weekend_surcharge_pct": 20,
 	})
 	r := ownerCtx(httptest.NewRequest(http.MethodPost, "/spaces", bytes.NewReader(body)))
 	w := httptest.NewRecorder()
@@ -174,13 +174,10 @@ func TestSpacesHandler_Create_ForbiddenForRenter(t *testing.T) {
 // --- GetAvailability ---
 
 func TestSpacesHandler_GetAvailability_Success(t *testing.T) {
-	openTime, _ := time.Parse("15:04", "09:00")
-	closeTime, _ := time.Parse("15:04", "18:00")
-
 	q := &mockStore{
 		getSpaceAvailability: func(_ context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error) {
 			return []store.SpaceAvailability{
-				{ID: uuid.New(), SpaceID: spaceID, DayOfWeek: 1, OpenTime: openTime, CloseTime: closeTime},
+				{ID: uuid.New(), SpaceID: spaceID, DayOfWeek: 1, OpenTime: "09:00", CloseTime: "18:00"},
 			}, nil
 		},
 	}
@@ -209,9 +206,6 @@ func TestSpacesHandler_GetAvailability_Success(t *testing.T) {
 // --- SetAvailability ---
 
 func TestSpacesHandler_SetAvailability_Success(t *testing.T) {
-	openTime, _ := time.Parse("15:04", "09:00")
-	closeTime, _ := time.Parse("15:04", "18:00")
-
 	upsertCalled := 0
 	q := &mockStore{
 		deleteSpaceAvailability: func(_ context.Context, _ uuid.UUID) error { return nil },
@@ -221,8 +215,8 @@ func TestSpacesHandler_SetAvailability_Success(t *testing.T) {
 		},
 		getSpaceAvailability: func(_ context.Context, spaceID uuid.UUID) ([]store.SpaceAvailability, error) {
 			return []store.SpaceAvailability{
-				{SpaceID: spaceID, DayOfWeek: 1, OpenTime: openTime, CloseTime: closeTime},
-				{SpaceID: spaceID, DayOfWeek: 2, OpenTime: openTime, CloseTime: closeTime},
+				{SpaceID: spaceID, DayOfWeek: 1, OpenTime: "09:00", CloseTime: "18:00"},
+				{SpaceID: spaceID, DayOfWeek: 2, OpenTime: "09:00", CloseTime: "18:00"},
 			}, nil
 		},
 	}
