@@ -54,10 +54,28 @@ type mockStore struct {
 	countBookingsBySpace             func(ctx context.Context, spaceID uuid.UUID) (int64, error)
 	createBooking            func(ctx context.Context, arg store.CreateBookingParams) (store.Booking, error)
 	getBookingByID           func(ctx context.Context, id uuid.UUID) (store.Booking, error)
+	listBookingsByOwner      func(ctx context.Context, ownerID uuid.UUID) ([]store.Booking, error)
 	listBookingsByRenter     func(ctx context.Context, renterID uuid.UUID) ([]store.Booking, error)
 	listBookingsBySpace      func(ctx context.Context, spaceID uuid.UUID) ([]store.Booking, error)
 	updateBookingStatus      func(ctx context.Context, arg store.UpdateBookingStatusParams) (store.Booking, error)
-	checkOverlappingBookings func(ctx context.Context, arg store.CheckOverlappingBookingsParams) (int64, error)
+	checkOverlappingBookings              func(ctx context.Context, arg store.CheckOverlappingBookingsParams) (int64, error)
+	bulkCompleteConfirmedBookings         func(ctx context.Context) ([]store.Booking, error)
+	bulkExpirePendingBookings             func(ctx context.Context) ([]store.Booking, error)
+	cancelOverlappingPendingBookings      func(ctx context.Context, arg store.CancelOverlappingPendingBookingsParams) ([]store.Booking, error)
+	countActiveBookingsByRenterForSpace   func(ctx context.Context, arg store.CountActiveBookingsByRenterForSpaceParams) (int64, error)
+	countPendingBookingsByRenter          func(ctx context.Context, renterID uuid.UUID) (int64, error)
+	createSpaceBlock                      func(ctx context.Context, arg store.CreateSpaceBlockParams) (store.SpaceBlock, error)
+	listSpaceBlocksBySpace                func(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceBlock, error)
+	getSpaceBlocksInRange                 func(ctx context.Context, arg store.GetSpaceBlocksInRangeParams) ([]store.SpaceBlock, error)
+	checkOverlappingSpaceBlocks           func(ctx context.Context, arg store.CheckOverlappingSpaceBlocksParams) (int64, error)
+	deleteSpaceBlock                      func(ctx context.Context, arg store.DeleteSpaceBlockParams) error
+	getSystemConfig                       func(ctx context.Context, key string) (string, error)
+	setSystemConfig                       func(ctx context.Context, arg store.SetSystemConfigParams) error
+	createNotification                    func(ctx context.Context, arg store.CreateNotificationParams) (store.Notification, error)
+	listNotificationsByProfile            func(ctx context.Context, arg store.ListNotificationsByProfileParams) ([]store.Notification, error)
+	countUnreadNotifications              func(ctx context.Context, profileID uuid.UUID) (int64, error)
+	markNotificationRead                  func(ctx context.Context, arg store.MarkNotificationReadParams) error
+	markAllNotificationsRead              func(ctx context.Context, profileID uuid.UUID) error
 }
 
 func (m *mockStore) ExecTx(ctx context.Context, fn func(store.Querier) error) error {
@@ -259,6 +277,12 @@ func (m *mockStore) GetBookingByID(ctx context.Context, id uuid.UUID) (store.Boo
 	}
 	return store.Booking{}, errors.New("not implemented")
 }
+func (m *mockStore) ListBookingsByOwner(ctx context.Context, ownerID uuid.UUID) ([]store.Booking, error) {
+	if m.listBookingsByOwner != nil {
+		return m.listBookingsByOwner(ctx, ownerID)
+	}
+	return nil, errors.New("not implemented")
+}
 func (m *mockStore) ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) ([]store.Booking, error) {
 	if m.listBookingsByRenter != nil {
 		return m.listBookingsByRenter(ctx, renterID)
@@ -282,6 +306,108 @@ func (m *mockStore) CheckOverlappingBookings(ctx context.Context, arg store.Chec
 		return m.checkOverlappingBookings(ctx, arg)
 	}
 	return 0, errors.New("not implemented")
+}
+func (m *mockStore) BulkCompleteConfirmedBookings(ctx context.Context) ([]store.Booking, error) {
+	if m.bulkCompleteConfirmedBookings != nil {
+		return m.bulkCompleteConfirmedBookings(ctx)
+	}
+	return nil, nil
+}
+func (m *mockStore) BulkExpirePendingBookings(ctx context.Context) ([]store.Booking, error) {
+	if m.bulkExpirePendingBookings != nil {
+		return m.bulkExpirePendingBookings(ctx)
+	}
+	return nil, nil
+}
+func (m *mockStore) CancelOverlappingPendingBookings(ctx context.Context, arg store.CancelOverlappingPendingBookingsParams) ([]store.Booking, error) {
+	if m.cancelOverlappingPendingBookings != nil {
+		return m.cancelOverlappingPendingBookings(ctx, arg)
+	}
+	return nil, nil
+}
+func (m *mockStore) CountActiveBookingsByRenterForSpace(ctx context.Context, arg store.CountActiveBookingsByRenterForSpaceParams) (int64, error) {
+	if m.countActiveBookingsByRenterForSpace != nil {
+		return m.countActiveBookingsByRenterForSpace(ctx, arg)
+	}
+	return 0, nil
+}
+func (m *mockStore) CountPendingBookingsByRenter(ctx context.Context, renterID uuid.UUID) (int64, error) {
+	if m.countPendingBookingsByRenter != nil {
+		return m.countPendingBookingsByRenter(ctx, renterID)
+	}
+	return 0, nil
+}
+func (m *mockStore) CreateSpaceBlock(ctx context.Context, arg store.CreateSpaceBlockParams) (store.SpaceBlock, error) {
+	if m.createSpaceBlock != nil {
+		return m.createSpaceBlock(ctx, arg)
+	}
+	return store.SpaceBlock{}, errors.New("not implemented")
+}
+func (m *mockStore) ListSpaceBlocksBySpace(ctx context.Context, spaceID uuid.UUID) ([]store.SpaceBlock, error) {
+	if m.listSpaceBlocksBySpace != nil {
+		return m.listSpaceBlocksBySpace(ctx, spaceID)
+	}
+	return nil, nil
+}
+func (m *mockStore) GetSpaceBlocksInRange(ctx context.Context, arg store.GetSpaceBlocksInRangeParams) ([]store.SpaceBlock, error) {
+	if m.getSpaceBlocksInRange != nil {
+		return m.getSpaceBlocksInRange(ctx, arg)
+	}
+	return nil, nil
+}
+func (m *mockStore) CheckOverlappingSpaceBlocks(ctx context.Context, arg store.CheckOverlappingSpaceBlocksParams) (int64, error) {
+	if m.checkOverlappingSpaceBlocks != nil {
+		return m.checkOverlappingSpaceBlocks(ctx, arg)
+	}
+	return 0, nil
+}
+func (m *mockStore) DeleteSpaceBlock(ctx context.Context, arg store.DeleteSpaceBlockParams) error {
+	if m.deleteSpaceBlock != nil {
+		return m.deleteSpaceBlock(ctx, arg)
+	}
+	return errors.New("not implemented")
+}
+func (m *mockStore) GetSystemConfig(ctx context.Context, key string) (string, error) {
+	if m.getSystemConfig != nil {
+		return m.getSystemConfig(ctx, key)
+	}
+	return "", errors.New("not implemented")
+}
+func (m *mockStore) SetSystemConfig(ctx context.Context, arg store.SetSystemConfigParams) error {
+	if m.setSystemConfig != nil {
+		return m.setSystemConfig(ctx, arg)
+	}
+	return errors.New("not implemented")
+}
+func (m *mockStore) CreateNotification(ctx context.Context, arg store.CreateNotificationParams) (store.Notification, error) {
+	if m.createNotification != nil {
+		return m.createNotification(ctx, arg)
+	}
+	return store.Notification{}, nil
+}
+func (m *mockStore) ListNotificationsByProfile(ctx context.Context, arg store.ListNotificationsByProfileParams) ([]store.Notification, error) {
+	if m.listNotificationsByProfile != nil {
+		return m.listNotificationsByProfile(ctx, arg)
+	}
+	return nil, nil
+}
+func (m *mockStore) CountUnreadNotifications(ctx context.Context, profileID uuid.UUID) (int64, error) {
+	if m.countUnreadNotifications != nil {
+		return m.countUnreadNotifications(ctx, profileID)
+	}
+	return 0, nil
+}
+func (m *mockStore) MarkNotificationRead(ctx context.Context, arg store.MarkNotificationReadParams) error {
+	if m.markNotificationRead != nil {
+		return m.markNotificationRead(ctx, arg)
+	}
+	return nil
+}
+func (m *mockStore) MarkAllNotificationsRead(ctx context.Context, profileID uuid.UUID) error {
+	if m.markAllNotificationsRead != nil {
+		return m.markAllNotificationsRead(ctx, profileID)
+	}
+	return nil
 }
 
 // fixtures
