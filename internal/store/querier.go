@@ -44,6 +44,7 @@ type Querier interface {
 	GetSystemConfig(ctx context.Context, key string) (string, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	ListActiveBookingsInRange(ctx context.Context, arg ListActiveBookingsInRangeParams) ([]Booking, error)
 	ListBookingsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Booking, error)
 	ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) ([]Booking, error)
 	ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([]Booking, error)

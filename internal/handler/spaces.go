@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -291,13 +292,26 @@ func (h *SpacesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetAvailability returns the weekly schedule for a space.
+// GetAvailability returns availability data for a space.
+// Without ?from=&to= params → returns weekly open-hours schedule (existing behaviour).
+// With    ?from=YYYY-MM-DD&to=YYYY-MM-DD → returns merged day-by-day view including blocks and bookings.
 func (h *SpacesHandler) GetAvailability(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		Error(w, http.StatusBadRequest, "invalid id")
 		return
 	}
+
+	fromStr := r.URL.Query().Get("from")
+	toStr := r.URL.Query().Get("to")
+
+	// Merged view when date range is provided
+	if fromStr != "" && toStr != "" {
+		h.getMergedAvailability(w, r, id, fromStr, toStr)
+		return
+	}
+
+	// Weekly schedule (backward-compatible)
 	slots, err := h.q.GetSpaceAvailability(r.Context(), id)
 	if err != nil {
 		ServerError(w, r, err)
@@ -312,6 +326,113 @@ func (h *SpacesHandler) GetAvailability(w http.ResponseWriter, r *http.Request) 
 		})
 	}
 	JSON(w, http.StatusOK, resp)
+}
+
+func (h *SpacesHandler) getMergedAvailability(w http.ResponseWriter, r *http.Request, spaceID interface{ String() string }, fromStr, toStr string) {
+	// parse as uuid.UUID
+	id, _ := parseUUID(chi.URLParam(r, "id"))
+
+	from, err := time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid from date, use YYYY-MM-DD")
+		return
+	}
+	to, err := time.Parse("2006-01-02", toStr)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid to date, use YYYY-MM-DD")
+		return
+	}
+	if to.Before(from) {
+		Error(w, http.StatusBadRequest, "to must be on or after from")
+		return
+	}
+	// max 90 days range
+	if to.Sub(from).Hours()/24 > 90 {
+		Error(w, http.StatusBadRequest, "date range cannot exceed 90 days")
+		return
+	}
+
+	// Fetch weekly schedule
+	slots, err := h.q.GetSpaceAvailability(r.Context(), id)
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+	scheduleByDow := map[int16]*store.SpaceAvailability{}
+	for i := range slots {
+		scheduleByDow[slots[i].DayOfWeek] = &slots[i]
+	}
+
+	// Fetch space blocks in range
+	rangeEnd := to.AddDate(0, 0, 1)
+	blocks, err := h.q.GetSpaceBlocksInRange(r.Context(), store.GetSpaceBlocksInRangeParams{
+		SpaceID:   id,
+		StartTime: from,
+		EndTime:   rangeEnd,
+	})
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+
+	// Fetch active bookings in range
+	bookings, err := h.q.ListActiveBookingsInRange(r.Context(), store.ListActiveBookingsInRangeParams{
+		SpaceID:   id,
+		StartTime: from,
+		EndTime:   rangeEnd,
+	})
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+
+	result := map[string]DayAvailability{}
+	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+		dateKey := d.Format("2006-01-02")
+		dow := int16(d.Weekday())
+		slot, open := scheduleByDow[dow]
+
+		day := DayAvailability{
+			Open:          open,
+			BlockedRanges: []BlockedRange{},
+		}
+		if open {
+			day.OpenTime = slot.OpenTime
+			day.CloseTime = slot.CloseTime
+		}
+
+		// Add space blocks for this day
+		for _, b := range blocks {
+			if b.StartTime.Format("2006-01-02") == dateKey || overlapsDay(b.StartTime, b.EndTime, d) {
+				day.BlockedRanges = append(day.BlockedRanges, BlockedRange{
+					From: b.StartTime.Format("15:04"),
+					To:   b.EndTime.Format("15:04"),
+					Type: "block",
+				})
+			}
+		}
+
+		// Add bookings for this day
+		for _, bk := range bookings {
+			if bk.StartTime.Format("2006-01-02") == dateKey || overlapsDay(bk.StartTime, bk.EndTime, d) {
+				day.BlockedRanges = append(day.BlockedRanges, BlockedRange{
+					From: bk.StartTime.Format("15:04"),
+					To:   bk.EndTime.Format("15:04"),
+					Type: "booking",
+				})
+			}
+		}
+
+		result[dateKey] = day
+	}
+
+	JSON(w, http.StatusOK, result)
+}
+
+func overlapsDay(start, end time.Time, day time.Time) bool {
+	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	dayEnd := dayStart.AddDate(0, 0, 1)
+	return start.Before(dayEnd) && end.After(dayStart)
 }
 
 // SetAvailability replaces the entire weekly schedule for a space (owner only).

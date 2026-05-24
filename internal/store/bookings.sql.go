@@ -302,6 +302,58 @@ func (q *Queries) GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, er
 	return i, err
 }
 
+const listActiveBookingsInRange = `-- name: ListActiveBookingsInRange :many
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at FROM bookings
+WHERE space_id   = $1
+  AND status     IN ('pending', 'confirmed')
+  AND start_time < $3
+  AND end_time   > $2
+ORDER BY start_time ASC
+`
+
+type ListActiveBookingsInRangeParams struct {
+	SpaceID   uuid.UUID `json:"space_id"`
+	EndTime   time.Time `json:"end_time"`
+	StartTime time.Time `json:"start_time"`
+}
+
+func (q *Queries) ListActiveBookingsInRange(ctx context.Context, arg ListActiveBookingsInRangeParams) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveBookingsInRange, arg.SpaceID, arg.EndTime, arg.StartTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBookingsByOwner = `-- name: ListBookingsByOwner :many
 SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at FROM bookings b
 JOIN spaces s ON s.id = b.space_id

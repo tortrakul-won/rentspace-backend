@@ -116,12 +116,27 @@ type SetAvailabilityRequest struct {
 	Schedule []AvailabilitySlot `json:"schedule"`
 }
 
+type BlockedRange struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Type string `json:"type"` // "booking" | "block"
+}
+
+type DayAvailability struct {
+	Open          bool           `json:"open"`
+	OpenTime      string         `json:"open_time,omitempty"`
+	CloseTime     string         `json:"close_time,omitempty"`
+	BlockedRanges []BlockedRange `json:"blocked_ranges"`
+}
+
 // --- Bookings ---
 
 type CreateBookingRequest struct {
 	SpaceID   string `json:"space_id"`
 	StartTime string `json:"start_time"`
 	EndTime   string `json:"end_time"`
+	Headcount *int   `json:"headcount,omitempty"`
+	Notes     string `json:"notes,omitempty"`
 	// total_price and platform_fee are server-calculated — not accepted from the client
 }
 
