@@ -69,6 +69,14 @@ WHERE status   = 'confirmed'
   AND end_time <= NOW()
 RETURNING *;
 
+-- name: ListActiveBookingsInRange :many
+SELECT * FROM bookings
+WHERE space_id   = $1
+  AND status     IN ('pending', 'confirmed')
+  AND start_time < $3
+  AND end_time   > $2
+ORDER BY start_time ASC;
+
 -- name: CancelOverlappingPendingBookings :many
 UPDATE bookings
 SET status = 'cancelled', updated_at = NOW()

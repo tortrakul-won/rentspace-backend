@@ -59,6 +59,7 @@ type mockStore struct {
 	listBookingsBySpace      func(ctx context.Context, spaceID uuid.UUID) ([]store.Booking, error)
 	updateBookingStatus      func(ctx context.Context, arg store.UpdateBookingStatusParams) (store.Booking, error)
 	checkOverlappingBookings              func(ctx context.Context, arg store.CheckOverlappingBookingsParams) (int64, error)
+	listActiveBookingsInRange             func(ctx context.Context, arg store.ListActiveBookingsInRangeParams) ([]store.Booking, error)
 	bulkCompleteConfirmedBookings         func(ctx context.Context) ([]store.Booking, error)
 	bulkExpirePendingBookings             func(ctx context.Context) ([]store.Booking, error)
 	cancelOverlappingPendingBookings      func(ctx context.Context, arg store.CancelOverlappingPendingBookingsParams) ([]store.Booking, error)
@@ -306,6 +307,12 @@ func (m *mockStore) CheckOverlappingBookings(ctx context.Context, arg store.Chec
 		return m.checkOverlappingBookings(ctx, arg)
 	}
 	return 0, errors.New("not implemented")
+}
+func (m *mockStore) ListActiveBookingsInRange(ctx context.Context, arg store.ListActiveBookingsInRangeParams) ([]store.Booking, error) {
+	if m.listActiveBookingsInRange != nil {
+		return m.listActiveBookingsInRange(ctx, arg)
+	}
+	return nil, nil
 }
 func (m *mockStore) BulkCompleteConfirmedBookings(ctx context.Context) ([]store.Booking, error) {
 	if m.bulkCompleteConfirmedBookings != nil {

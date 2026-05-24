@@ -73,12 +73,24 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Post("/bookings", bookingsHandler.Create)
 			// GET   /bookings/mine        — list all bookings for the authenticated renter
 			r.Get("/bookings/mine", bookingsHandler.ListMine)
+			// GET   /bookings/owner       — list all bookings across owner's spaces
+			r.Get("/bookings/owner", bookingsHandler.ListMineOwner)
 			// GET   /bookings/{id}        — get a single booking by ID
 			r.Get("/bookings/{id}", bookingsHandler.Get)
-			// PATCH /bookings/{id}/status — update booking status (pending → confirmed → completed / cancelled)
+			// PATCH /bookings/{id}/status — update booking status (pending → confirmed / cancelled)
 			r.Patch("/bookings/{id}/status", bookingsHandler.UpdateStatus)
 			// GET   /spaces/{id}/bookings — list all bookings for a space
 			r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)
+
+			notificationsHandler := handler.NewNotificationsHandler(q)
+			// GET   /notifications        — list recent notifications for the active profile
+			r.Get("/notifications", notificationsHandler.List)
+			// GET   /notifications/unread-count — count unread notifications
+			r.Get("/notifications/unread-count", notificationsHandler.UnreadCount)
+			// POST  /notifications/{id}/read — mark a notification read
+			r.Post("/notifications/{id}/read", notificationsHandler.MarkRead)
+			// POST  /notifications/read-all — mark all notifications read
+			r.Post("/notifications/read-all", notificationsHandler.MarkAllRead)
 		})
 	})
 
