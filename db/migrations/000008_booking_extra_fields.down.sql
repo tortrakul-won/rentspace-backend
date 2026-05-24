@@ -1,0 +1,4 @@
+ALTER TABLE bookings
+  DROP COLUMN IF EXISTS headcount,
+  DROP COLUMN IF EXISTS notes,
+  DROP COLUMN IF EXISTS expires_at;
