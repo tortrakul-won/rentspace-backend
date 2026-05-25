@@ -326,8 +326,8 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			Error(w, http.StatusForbidden, "this booking does not belong to you")
 			return
 		}
-		if body.Status != store.BookingStatusCancelled {
-			Error(w, http.StatusForbidden, "renters can only cancel bookings")
+		if body.Status != store.BookingStatusCancelled && body.Status != store.BookingStatusPaymentReview {
+			Error(w, http.StatusForbidden, "renters can only cancel or submit payment")
 			return
 		}
 	case "owner":
