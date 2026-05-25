@@ -3,7 +3,6 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -76,10 +75,6 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
-		// Supersede previous notifications then notify renter of confirmation
-		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
-			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
-		}
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
 		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
@@ -90,9 +85,6 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 
 		// Notify renter of each auto-cancelled backup booking
 		for _, cb := range cancelled {
-			if err := q.SupersedeNotificationsByBooking(r.Context(), cb.ID); err != nil {
-				log.Printf("supersede notifications for booking %s: %v", cb.ID, err)
-			}
 			cp, _ := json.Marshal(map[string]string{"booking_id": cb.ID.String(), "space_name": sp.Name})
 			pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 				ProfileID: booking.RenterID,
@@ -143,9 +135,6 @@ func (h *AdminHandler) RejectRetry(w http.ResponseWriter, r *http.Request) {
 
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
-		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
-			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
-		}
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
 		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
@@ -195,9 +184,6 @@ func (h *AdminHandler) RejectPermanent(w http.ResponseWriter, r *http.Request) {
 
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
-		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
-			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
-		}
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
 		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,

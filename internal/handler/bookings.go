@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -377,11 +376,6 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			return err
-		}
-
-		// Supersede previous notifications for this booking before creating new one
-		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
-			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
 		}
 
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)

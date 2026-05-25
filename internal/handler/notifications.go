@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -120,8 +121,15 @@ func (h *NotificationsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 }
 
 // pushNotification writes a notification to the DB and publishes it to any active SSE connection.
+// When params.BookingID is valid, previous notifications for that booking are superseded first —
+// callers must not call SupersedeNotificationsByBooking separately.
 // Errors are swallowed — notifications are best-effort and must not fail the parent transaction.
 func pushNotification(ctx context.Context, q store.Querier, h *hub.Hub, params store.CreateNotificationParams) {
+	if params.BookingID.Valid {
+		if err := q.SupersedeNotificationsByBooking(ctx, params.BookingID.UUID); err != nil {
+			log.Printf("supersede notifications for booking %s: %v", params.BookingID.UUID, err)
+		}
+	}
 	n, err := q.CreateNotification(ctx, params)
 	if err == nil && h != nil {
 		h.Publish(params.ProfileID, hub.Event{
