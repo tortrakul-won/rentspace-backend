@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"rentspace/backend/internal/hub"
 	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
@@ -20,11 +21,12 @@ import (
 var errTimeSlotTaken = errors.New("time slot taken")
 
 type BookingsHandler struct {
-	q store.Store
+	q   store.Store
+	hub *hub.Hub
 }
 
-func NewBookingsHandler(q store.Store) *BookingsHandler {
-	return &BookingsHandler{q: q}
+func NewBookingsHandler(q store.Store, h *hub.Hub) *BookingsHandler {
+	return &BookingsHandler{q: q, hub: h}
 }
 
 // Create validates all booking rules and creates the booking atomically.
@@ -277,7 +279,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			"booking_id": booking.ID.String(),
 			"space_name": space.Name,
 		})
-		_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: ownerID,
 			Type:      "booking_request",
 			Payload:   payload,
@@ -486,7 +488,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				"booking_id": updated.ID.String(),
 				"space_name": sp.Name,
 			})
-			_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+			pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 				ProfileID: booking.RenterID,
 				Type:      "payment_required",
 				Payload:   payload,
@@ -502,7 +504,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			})
 			if claims.Role == "renter" {
 				// renter cancels → notify owner
-				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+				pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 					ProfileID: sp.OwnerID,
 					Type:      "booking_cancelled_by_renter",
 					Payload:   payload,
@@ -510,7 +512,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				})
 			} else {
 				// owner declines/cancels → notify renter
-				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+				pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 					ProfileID: booking.RenterID,
 					Type:      "booking_cancelled_by_owner",
 					Payload:   payload,

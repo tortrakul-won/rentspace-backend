@@ -9,15 +9,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"rentspace/backend/internal/hub"
 	"rentspace/backend/internal/store"
 )
 
 type AdminHandler struct {
-	q store.Store
+	q   store.Store
+	hub *hub.Hub
 }
 
-func NewAdminHandler(q store.Store) *AdminHandler {
-	return &AdminHandler{q: q}
+func NewAdminHandler(q store.Store, h *hub.Hub) *AdminHandler {
+	return &AdminHandler{q: q, hub: h}
 }
 
 // ListPaymentPending returns all bookings awaiting payment verification.
@@ -79,7 +81,7 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
 		}
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
-		_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
 			Type:      "booking_confirmed",
 			Payload:   payload,
@@ -92,7 +94,7 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 				log.Printf("supersede notifications for booking %s: %v", cb.ID, err)
 			}
 			cp, _ := json.Marshal(map[string]string{"booking_id": cb.ID.String(), "space_name": sp.Name})
-			_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+			pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 				ProfileID: booking.RenterID,
 				Type:      "backup_booking_cancelled",
 				Payload:   cp,
@@ -145,7 +147,7 @@ func (h *AdminHandler) RejectRetry(w http.ResponseWriter, r *http.Request) {
 			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
 		}
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
-		_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
 			Type:      "payment_rejected",
 			Payload:   payload,
@@ -197,7 +199,7 @@ func (h *AdminHandler) RejectPermanent(w http.ResponseWriter, r *http.Request) {
 			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
 		}
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
-		_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
 			Type:      "payment_rejected",
 			Payload:   payload,
