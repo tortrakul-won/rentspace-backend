@@ -38,6 +38,7 @@ type Querier interface {
 	GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error)
 	GetProfileByUserAndRole(ctx context.Context, arg GetProfileByUserAndRoleParams) (Profile, error)
 	GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]Profile, error)
+	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	GetSpaceAvailability(ctx context.Context, spaceID uuid.UUID) ([]SpaceAvailability, error)
 	GetSpaceBlocksInRange(ctx context.Context, arg GetSpaceBlocksInRangeParams) ([]SpaceBlock, error)
 	GetSpaceByID(ctx context.Context, id uuid.UUID) (Space, error)

@@ -380,10 +380,10 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateStatus enforces role-based state machine transitions.
-// owner: pending → payment_pending (accept), pending/payment_pending/confirmed → cancelled
-// renter: pending/payment_pending/confirmed → cancelled only
+// owner: pending → awaiting_payment (accept), pending/awaiting_payment/payment_review/confirmed → cancelled
+// renter: pending/awaiting_payment/payment_review/confirmed → cancelled only
 // completed is automatic only — no manual trigger allowed.
-// Admin approval (payment_pending → confirmed) is handled by the admin handler.
+// Admin approval (payment_review → confirmed) is handled by the admin handler.
 func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFromCtx(r.Context())
 
@@ -435,8 +435,8 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			Error(w, http.StatusBadRequest, "cannot revert a booking to pending")
 			return
 		}
-		// owner can only: payment_pending (accept), cancelled (decline)
-		if body.Status != store.BookingStatusPaymentPending && body.Status != store.BookingStatusCancelled {
+		// owner can only: awaiting_payment (accept), cancelled (decline)
+		if body.Status != store.BookingStatusAwaitingPayment && body.Status != store.BookingStatusCancelled {
 			Error(w, http.StatusBadRequest, "invalid status transition")
 			return
 		}
@@ -480,8 +480,8 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
-		// Owner accepts → notify renter to complete payment
-		if next == store.BookingStatusPaymentPending {
+		// Owner accepts → notify renter to upload payment slip
+		if next == store.BookingStatusAwaitingPayment {
 			payload, _ := json.Marshal(map[string]string{
 				"booking_id": updated.ID.String(),
 				"space_name": sp.Name,
@@ -561,15 +561,18 @@ func (h *BookingsHandler) ListMineOwner(w http.ResponseWriter, r *http.Request) 
 }
 
 // isValidTransition returns true if the status transition is allowed by the state machine.
-// pending → payment_pending (owner accepts) | cancelled
-// payment_pending → confirmed (admin approves) | cancelled
+// pending → awaiting_payment (owner accepts) | cancelled
+// awaiting_payment → payment_review (renter uploads slip) | cancelled
+// payment_review → confirmed (admin) | awaiting_payment (admin retry) | cancelled (admin permanent reject)
 // confirmed → cancelled | completed (auto)
 func isValidTransition(from, to store.BookingStatus) bool {
 	switch from {
 	case store.BookingStatusPending:
-		return to == store.BookingStatusPaymentPending || to == store.BookingStatusCancelled
-	case store.BookingStatusPaymentPending:
-		return to == store.BookingStatusConfirmed || to == store.BookingStatusCancelled
+		return to == store.BookingStatusAwaitingPayment || to == store.BookingStatusCancelled
+	case store.BookingStatusAwaitingPayment:
+		return to == store.BookingStatusPaymentReview || to == store.BookingStatusCancelled
+	case store.BookingStatusPaymentReview:
+		return to == store.BookingStatusConfirmed || to == store.BookingStatusAwaitingPayment || to == store.BookingStatusCancelled
 	case store.BookingStatusConfirmed:
 		return to == store.BookingStatusCancelled
 	default:

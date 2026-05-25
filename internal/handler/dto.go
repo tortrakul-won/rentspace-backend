@@ -112,6 +112,7 @@ type ProfileResponse struct {
 	TaxID           string `json:"tax_id,omitempty"`
 	IsJuristic      bool   `json:"is_juristic"`
 	IsVatRegistered bool   `json:"is_vat_registered"`
+	LineID          string `json:"line_id,omitempty"`
 	CreatedAt       string `json:"created_at"`
 }
 
@@ -185,16 +186,19 @@ type CreateBookingRequest struct {
 }
 
 type BookingResponse struct {
-	ID          string `json:"id"`
-	SpaceID     string `json:"space_id"`
-	RenterID    string `json:"renter_id"`
-	StartTime   string `json:"start_time"`
-	EndTime     string `json:"end_time"`
-	TotalPrice  int32  `json:"total_price"`
-	PlatformFee int32  `json:"platform_fee"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID               string  `json:"id"`
+	SpaceID          string  `json:"space_id"`
+	RenterID         string  `json:"renter_id"`
+	StartTime        string  `json:"start_time"`
+	EndTime          string  `json:"end_time"`
+	TotalPrice       int32   `json:"total_price"`
+	PlatformFee      int32   `json:"platform_fee"`
+	Status           string  `json:"status"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at"`
+	RefundStatus     *string `json:"refund_status"`
+	ProcessExpiresAt *string `json:"process_expires_at"`
+	SlipUrl          *string `json:"slip_url"`
 }
 
 // --- Shared ---

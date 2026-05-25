@@ -133,6 +133,9 @@ func (m *mockStore) GetProfileByUserAndRole(ctx context.Context, arg store.GetPr
 	}
 	return store.Profile{}, errors.New("not implemented")
 }
+func (m *mockStore) UpdateProfile(ctx context.Context, arg store.UpdateProfileParams) (store.Profile, error) {
+	return store.Profile{}, errors.New("not implemented")
+}
 func (m *mockStore) CreateSpace(ctx context.Context, arg store.CreateSpaceParams) (store.Space, error) {
 	if m.createSpace != nil {
 		return m.createSpace(ctx, arg)

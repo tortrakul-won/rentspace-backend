@@ -281,6 +281,43 @@ func toProfileResponse(p store.Profile) ProfileResponse {
 		TaxID:           p.TaxID.String,
 		IsJuristic:      p.IsJuristic,
 		IsVatRegistered: p.IsVatRegistered,
+		LineID:          p.LineID.String,
 		CreatedAt:       p.CreatedAt.Format(time.RFC3339),
 	}
+}
+
+// UpdateProfile updates editable fields (display_name, line_id) for the active profile.
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+
+	var body struct {
+		DisplayName string `json:"display_name"`
+		LineID      string `json:"line_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Preserve existing display_name if not provided
+	if body.DisplayName == "" {
+		existing, err := h.q.GetProfileByID(r.Context(), claims.ProfileID)
+		if err != nil {
+			ServerError(w, r, err)
+			return
+		}
+		body.DisplayName = existing.DisplayName
+	}
+
+	updated, err := h.q.UpdateProfile(r.Context(), store.UpdateProfileParams{
+		ID:          claims.ProfileID,
+		DisplayName: body.DisplayName,
+		LineID:      sql.NullString{String: body.LineID, Valid: body.LineID != ""},
+	})
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+
+	JSON(w, http.StatusOK, toProfileResponse(updated))
 }

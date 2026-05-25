@@ -17,11 +17,13 @@ import (
 type BookingStatus string
 
 const (
-	BookingStatusPending        BookingStatus = "pending"
-	BookingStatusPaymentPending BookingStatus = "payment_pending"
-	BookingStatusConfirmed      BookingStatus = "confirmed"
-	BookingStatusCompleted      BookingStatus = "completed"
-	BookingStatusCancelled      BookingStatus = "cancelled"
+	BookingStatusPending         BookingStatus = "pending"
+	BookingStatusPaymentPending  BookingStatus = "payment_pending"
+	BookingStatusAwaitingPayment BookingStatus = "awaiting_payment"
+	BookingStatusPaymentReview   BookingStatus = "payment_review"
+	BookingStatusConfirmed       BookingStatus = "confirmed"
+	BookingStatusCompleted       BookingStatus = "completed"
+	BookingStatusCancelled       BookingStatus = "cancelled"
 )
 
 func (e *BookingStatus) Scan(src interface{}) error {
@@ -159,10 +161,13 @@ type Booking struct {
 	Status      BookingStatus  `json:"status"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-	Headcount    sql.NullInt32  `json:"headcount"`
-	Notes        sql.NullString `json:"notes"`
-	ExpiresAt    sql.NullTime   `json:"expires_at"`
-	CancelReason sql.NullString `json:"cancel_reason"`
+	Headcount        sql.NullInt32  `json:"headcount"`
+	Notes            sql.NullString `json:"notes"`
+	ExpiresAt        sql.NullTime   `json:"expires_at"`
+	CancelReason     sql.NullString `json:"cancel_reason"`
+	RefundStatus     sql.NullString `json:"refund_status"`
+	ProcessExpiresAt sql.NullTime   `json:"process_expires_at"`
+	SlipUrl          sql.NullString `json:"slip_url"`
 }
 
 type Notification struct {
@@ -187,6 +192,7 @@ type Profile struct {
 	IsActive        bool           `json:"is_active"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	LineID          sql.NullString `json:"line_id"`
 }
 
 type Space struct {
@@ -205,11 +211,12 @@ type Space struct {
 	IsActive            bool          `json:"is_active"`
 	CreatedAt           time.Time     `json:"created_at"`
 	UpdatedAt           time.Time     `json:"updated_at"`
-	WeekendSurchargePct int32         `json:"weekend_surcharge_pct"`
-	MinNoticeHours      int32         `json:"min_notice_hours"`
-	MaxBookingMinutes   sql.NullInt32 `json:"max_booking_minutes"`
-	TurnaroundMinutes   int32         `json:"turnaround_minutes"`
-	DepositPct          int32         `json:"deposit_pct"`
+	WeekendSurchargePct      int32         `json:"weekend_surcharge_pct"`
+	MinNoticeHours           int32         `json:"min_notice_hours"`
+	MaxBookingMinutes        sql.NullInt32 `json:"max_booking_minutes"`
+	TurnaroundMinutes        int32         `json:"turnaround_minutes"`
+	DepositPct               int32         `json:"deposit_pct"`
+	PaymentDeadlineMinutes   sql.NullInt32 `json:"payment_deadline_minutes"`
 }
 
 type SpaceAvailability struct {

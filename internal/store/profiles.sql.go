@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 )
@@ -14,7 +15,7 @@ import (
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profiles (user_id, role, display_name)
 VALUES ($1, $2, $3)
-RETURNING id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at
+RETURNING id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at, line_id
 `
 
 type CreateProfileParams struct {
@@ -37,12 +38,13 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LineID,
 	)
 	return i, err
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at FROM profiles WHERE id = $1
+SELECT id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at, line_id FROM profiles WHERE id = $1
 `
 
 func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error) {
@@ -59,12 +61,13 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LineID,
 	)
 	return i, err
 }
 
 const getProfileByUserAndRole = `-- name: GetProfileByUserAndRole :one
-SELECT id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at FROM profiles WHERE user_id = $1 AND role = $2
+SELECT id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at, line_id FROM profiles WHERE user_id = $1 AND role = $2
 `
 
 type GetProfileByUserAndRoleParams struct {
@@ -86,12 +89,13 @@ func (q *Queries) GetProfileByUserAndRole(ctx context.Context, arg GetProfileByU
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LineID,
 	)
 	return i, err
 }
 
 const getProfilesByUserID = `-- name: GetProfilesByUserID :many
-SELECT id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at FROM profiles WHERE user_id = $1 AND is_active = TRUE ORDER BY created_at ASC
+SELECT id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at, line_id FROM profiles WHERE user_id = $1 AND is_active = TRUE ORDER BY created_at ASC
 `
 
 func (q *Queries) GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]Profile, error) {
@@ -114,6 +118,7 @@ func (q *Queries) GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]
 			&i.IsActive,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LineID,
 		); err != nil {
 			return nil, err
 		}
@@ -126,4 +131,35 @@ func (q *Queries) GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE profiles SET display_name = $2, line_id = $3, updated_at = NOW()
+WHERE id = $1
+RETURNING id, user_id, role, display_name, tax_id, is_juristic, is_vat_registered, is_active, created_at, updated_at, line_id
+`
+
+type UpdateProfileParams struct {
+	ID          uuid.UUID      `json:"id"`
+	DisplayName string         `json:"display_name"`
+	LineID      sql.NullString `json:"line_id"`
+}
+
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
+	row := q.db.QueryRowContext(ctx, updateProfile, arg.ID, arg.DisplayName, arg.LineID)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Role,
+		&i.DisplayName,
+		&i.TaxID,
+		&i.IsJuristic,
+		&i.IsVatRegistered,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LineID,
+	)
+	return i, err
 }

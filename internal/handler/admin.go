@@ -30,7 +30,7 @@ func (h *AdminHandler) ListPaymentPending(w http.ResponseWriter, r *http.Request
 	JSON(w, http.StatusOK, nonNil(bookings))
 }
 
-// Approve confirms a payment_pending booking → confirmed.
+// Approve confirms a payment_review booking → confirmed.
 // Also cancels any other overlapping bookings from the same renter and sends notifications.
 func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
@@ -44,8 +44,8 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusNotFound, "booking not found")
 		return
 	}
-	if booking.Status != store.BookingStatusPaymentPending {
-		Error(w, http.StatusUnprocessableEntity, "booking must be in payment_pending state to approve")
+	if booking.Status != store.BookingStatusPaymentReview {
+		Error(w, http.StatusUnprocessableEntity, "booking must be in payment_review state to approve")
 		return
 	}
 
@@ -109,8 +109,8 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, updated)
 }
 
-// Reject cancels a payment_pending booking and notifies the renter.
-func (h *AdminHandler) Reject(w http.ResponseWriter, r *http.Request) {
+// RejectRetry moves a payment_review booking back to awaiting_payment so the renter can retry.
+func (h *AdminHandler) RejectRetry(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUID(chi.URLParam(r, "id"))
 	if err != nil {
 		Error(w, http.StatusBadRequest, "invalid id")
@@ -122,8 +122,60 @@ func (h *AdminHandler) Reject(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusNotFound, "booking not found")
 		return
 	}
-	if booking.Status != store.BookingStatusPaymentPending {
-		Error(w, http.StatusUnprocessableEntity, "booking must be in payment_pending state to reject")
+	if booking.Status != store.BookingStatusPaymentReview {
+		Error(w, http.StatusUnprocessableEntity, "booking must be in payment_review state to reject")
+		return
+	}
+
+	var updated store.Booking
+	if err := h.q.ExecTx(r.Context(), func(q store.Querier) error {
+		var err error
+		updated, err = q.UpdateBookingStatus(r.Context(), store.UpdateBookingStatusParams{
+			ID:           id,
+			Status:       store.BookingStatusAwaitingPayment,
+			CancelReason: sql.NullString{},
+		})
+		if err != nil {
+			return err
+		}
+
+		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
+
+		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
+			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
+		}
+		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
+		_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+			ProfileID: booking.RenterID,
+			Type:      "payment_rejected",
+			Payload:   payload,
+			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+		})
+
+		return nil
+	}); err != nil {
+		ServerError(w, r, err)
+		return
+	}
+
+	JSON(w, http.StatusOK, updated)
+}
+
+// RejectPermanent cancels a payment_review booking permanently and notifies the renter.
+func (h *AdminHandler) RejectPermanent(w http.ResponseWriter, r *http.Request) {
+	id, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	booking, err := h.q.GetBookingByID(r.Context(), id)
+	if err != nil {
+		Error(w, http.StatusNotFound, "booking not found")
+		return
+	}
+	if booking.Status != store.BookingStatusPaymentReview {
+		Error(w, http.StatusUnprocessableEntity, "booking must be in payment_review state to reject permanently")
 		return
 	}
 

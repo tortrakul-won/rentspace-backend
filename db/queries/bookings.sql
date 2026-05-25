@@ -53,7 +53,7 @@ ORDER BY b.start_time DESC;
 -- name: CheckOverlappingBookings :one
 SELECT COUNT(*) FROM bookings
 WHERE space_id   = $1
-  AND status     IN ('pending', 'payment_pending', 'confirmed')
+  AND status     IN ('pending', 'awaiting_payment', 'payment_review', 'confirmed')
   AND start_time < $3
   AND end_time   > $2;
 
@@ -61,12 +61,12 @@ WHERE space_id   = $1
 SELECT COUNT(*) FROM bookings
 WHERE renter_id = $1
   AND space_id  = $2
-  AND status    IN ('pending', 'payment_pending', 'confirmed');
+  AND status    IN ('pending', 'awaiting_payment', 'payment_review', 'confirmed');
 
 -- name: CountPendingBookingsByRenter :one
 SELECT COUNT(*) FROM bookings
 WHERE renter_id = $1
-  AND status    IN ('pending', 'payment_pending');
+  AND status    IN ('pending', 'awaiting_payment', 'payment_review');
 
 -- name: BulkExpirePendingBookings :many
 UPDATE bookings
@@ -86,7 +86,7 @@ RETURNING *;
 -- name: ListActiveBookingsInRange :many
 SELECT * FROM bookings
 WHERE space_id   = $1
-  AND status     IN ('pending', 'payment_pending', 'confirmed')
+  AND status     IN ('pending', 'awaiting_payment', 'payment_review', 'confirmed')
   AND start_time < $3
   AND end_time   > $2
 ORDER BY start_time ASC;
@@ -96,7 +96,7 @@ UPDATE bookings
 SET status = 'cancelled', cancel_reason = 'auto_cancelled', updated_at = NOW()
 WHERE renter_id  = $1
   AND id        != $2
-  AND status     IN ('pending', 'payment_pending')
+  AND status     IN ('pending', 'awaiting_payment')
   AND start_time < $4
   AND end_time   > $3
 RETURNING *;
@@ -106,5 +106,5 @@ SELECT b.*, s.name AS space_name, s.location AS space_location, s.images AS spac
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
 JOIN profiles p ON p.id = b.renter_id
-WHERE b.status = 'payment_pending'
+WHERE b.status = 'payment_review'
 ORDER BY b.created_at ASC;
