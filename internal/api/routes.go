@@ -54,8 +54,10 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Get("/auth/me", authHandler.CurrentUser)
 			// POST /auth/switch-profile — swap active profile, returns new JWT
 			r.Post("/auth/switch-profile", authHandler.SwitchProfile)
-			// POST /auth/profiles       — add a second profile (owner or renter) to the account
+			// POST  /auth/profiles       — add a second profile (owner or renter) to the account
 			r.Post("/auth/profiles", authHandler.AddProfile)
+			// PATCH /auth/profile — update display_name and/or line_id for the active profile
+			r.Patch("/auth/profile", authHandler.UpdateProfile)
 
 			// GET    /spaces/mine  — list all spaces owned by the authenticated owner profile (active + inactive)
 			r.Get("/spaces/mine", spacesHandler.Mine)

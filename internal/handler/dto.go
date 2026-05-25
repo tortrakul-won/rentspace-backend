@@ -112,6 +112,7 @@ type ProfileResponse struct {
 	TaxID           string `json:"tax_id,omitempty"`
 	IsJuristic      bool   `json:"is_juristic"`
 	IsVatRegistered bool   `json:"is_vat_registered"`
+	LineID          string `json:"line_id,omitempty"`
 	CreatedAt       string `json:"created_at"`
 }
 
