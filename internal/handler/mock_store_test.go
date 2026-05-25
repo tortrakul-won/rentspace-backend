@@ -73,6 +73,7 @@ type mockStore struct {
 	checkOverlappingSpaceBlocks           func(ctx context.Context, arg store.CheckOverlappingSpaceBlocksParams) (int64, error)
 	deleteSpaceBlock                      func(ctx context.Context, arg store.DeleteSpaceBlockParams) error
 	getSystemConfig                       func(ctx context.Context, key string) (string, error)
+	getSystemConfigMultiple               func(ctx context.Context, keys []string) (map[string]string, error)
 	setSystemConfig                       func(ctx context.Context, arg store.SetSystemConfigParams) error
 	createNotification                    func(ctx context.Context, arg store.CreateNotificationParams) (store.Notification, error)
 	listNotificationsByProfile            func(ctx context.Context, arg store.ListNotificationsByProfileParams) ([]store.Notification, error)
@@ -399,6 +400,12 @@ func (m *mockStore) GetSystemConfig(ctx context.Context, key string) (string, er
 		return m.getSystemConfig(ctx, key)
 	}
 	return "", errors.New("not implemented")
+}
+func (m *mockStore) GetSystemConfigMultiple(ctx context.Context, keys []string) (map[string]string, error) {
+	if m.getSystemConfigMultiple != nil {
+		return m.getSystemConfigMultiple(ctx, keys)
+	}
+	return map[string]string{}, nil
 }
 func (m *mockStore) SetSystemConfig(ctx context.Context, arg store.SetSystemConfigParams) error {
 	if m.setSystemConfig != nil {

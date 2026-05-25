@@ -8,11 +8,13 @@ import (
 	"github.com/go-chi/cors"
 
 	"rentspace/backend/internal/handler"
+	"rentspace/backend/internal/hub"
 	appMiddleware "rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
 
 func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handler {
+	h := hub.New()
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -74,7 +76,7 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			// PUT    /spaces/{id}/availability — replace weekly schedule (owner only)
 			r.Put("/spaces/{id}/availability", spacesHandler.SetAvailability)
 
-			bookingsHandler := handler.NewBookingsHandler(q)
+			bookingsHandler := handler.NewBookingsHandler(q, h)
 			// POST  /bookings             — create a booking (renter profile only; renter_id taken from JWT)
 			r.Post("/bookings", bookingsHandler.Create)
 			// GET   /bookings/mine        — list all bookings for the authenticated renter
@@ -88,7 +90,9 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			// GET   /spaces/{id}/bookings — list all bookings for a space
 			r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)
 
-			notificationsHandler := handler.NewNotificationsHandler(q)
+			notificationsHandler := handler.NewNotificationsHandler(q, h)
+			// GET   /notifications/stream  — SSE stream of new notifications for the active profile
+			r.Get("/notifications/stream", notificationsHandler.Stream)
 			// GET   /notifications        — list recent notifications for the active profile
 			r.Get("/notifications", notificationsHandler.List)
 			// GET   /notifications/unread-count — count unread notifications
@@ -101,7 +105,7 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			// Admin routes — require is_admin flag in JWT
 			r.Group(func(r chi.Router) {
 				r.Use(appMiddleware.RequireAdmin)
-				adminHandler := handler.NewAdminHandler(q)
+				adminHandler := handler.NewAdminHandler(q, h)
 				// GET  /admin/bookings          — list all payment_pending bookings
 				r.Get("/admin/bookings", adminHandler.ListPaymentPending)
 				// POST /admin/bookings/{id}/approve         — confirm payment → booking confirmed

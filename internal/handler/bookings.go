@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
-	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,6 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	bk "rentspace/backend/internal/booking"
+	"rentspace/backend/internal/hub"
 	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
@@ -20,11 +20,12 @@ import (
 var errTimeSlotTaken = errors.New("time slot taken")
 
 type BookingsHandler struct {
-	q store.Store
+	q   store.Store
+	hub *hub.Hub
 }
 
-func NewBookingsHandler(q store.Store) *BookingsHandler {
-	return &BookingsHandler{q: q}
+func NewBookingsHandler(q store.Store, h *hub.Hub) *BookingsHandler {
+	return &BookingsHandler{q: q, hub: h}
 }
 
 // Create validates all booking rules and creates the booking atomically.
@@ -58,124 +59,26 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 30-min boundary check
-	details := map[string]string{}
-	if startTime.Minute() != 0 && startTime.Minute() != 30 {
-		details["start_time"] = "must be on a 30-minute boundary (:00 or :30)"
-	}
-	if endTime.Minute() != 0 && endTime.Minute() != 30 {
-		details["end_time"] = "must be on a 30-minute boundary (:00 or :30)"
-	}
-	if len(details) > 0 {
-		ValidationError(w, "invalid booking times", details)
-		return
-	}
-
-	if !startTime.After(time.Now()) {
-		Error(w, http.StatusUnprocessableEntity, "start_time must be in the future")
-		return
-	}
-	if !endTime.After(startTime) {
-		Error(w, http.StatusUnprocessableEntity, "end_time must be after start_time")
-		return
-	}
-
-	// Same-day check (no midnight crossing)
-	startLocal := startTime.In(startTime.Location())
-	endLocal := endTime.In(startTime.Location())
-	if startLocal.Year() != endLocal.Year() || startLocal.YearDay() != endLocal.YearDay() {
-		Error(w, http.StatusUnprocessableEntity, "booking cannot cross midnight")
-		return
-	}
-
+	// Fetch all deps before calling policy.
 	space, err := h.q.GetSpaceByID(r.Context(), spaceID)
 	if err != nil {
 		Error(w, http.StatusNotFound, "space not found")
 		return
 	}
-	if !space.IsActive {
-		Error(w, http.StatusConflict, "space is not available for booking")
-		return
-	}
-
-	durationMins := int32(endTime.Sub(startTime).Minutes())
-
-	// Min duration check
-	if durationMins < space.MinMinutes {
-		minLabel := formatDurationMins(space.MinMinutes)
-		ValidationError(w, "booking duration too short", map[string]string{
-			"duration": "minimum booking is " + minLabel,
-		})
-		return
-	}
-
-	// Max booking minutes — per space (if set) and system_config hard cap
-	sysMaxStr, err := h.q.GetSystemConfig(r.Context(), "max_booking_minutes")
-	if err != nil {
-		ServerError(w, r, err)
-		return
-	}
-	sysMax, _ := strconv.Atoi(sysMaxStr)
-	if sysMax > 0 && durationMins > int32(sysMax) {
-		ValidationError(w, "booking duration too long", map[string]string{
-			"duration": "exceeds platform maximum of " + formatDurationMins(int32(sysMax)),
-		})
-		return
-	}
-	if space.MaxBookingMinutes.Valid && durationMins > space.MaxBookingMinutes.Int32 {
-		ValidationError(w, "booking duration too long", map[string]string{
-			"duration": "exceeds space maximum of " + formatDurationMins(space.MaxBookingMinutes.Int32),
-		})
-		return
-	}
-
-	// Open hours check — must have availability row for that day of week
-	dow := int16(startTime.Weekday())
 	avail, err := h.q.GetSpaceAvailability(r.Context(), spaceID)
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	var slot *store.SpaceAvailability
-	for i := range avail {
-		if avail[i].DayOfWeek == dow {
-			slot = &avail[i]
-			break
-		}
-	}
-	if slot == nil {
-		Error(w, http.StatusUnprocessableEntity, "space is closed on that day")
+	configs, err := h.q.GetSystemConfigMultiple(r.Context(), []string{
+		"max_booking_minutes",
+		"platform_fee_pct",
+		"max_pending_bookings_per_renter",
+	})
+	if err != nil {
+		ServerError(w, r, err)
 		return
 	}
-
-	// Open hours boundary check
-	openMins := parseTimeMins(slot.OpenTime)
-	closeMins := parseTimeMins(slot.CloseTime)
-	startMins := startTime.Hour()*60 + startTime.Minute()
-	endMins := endTime.Hour()*60 + endTime.Minute()
-	if startMins < openMins {
-		ValidationError(w, "booking outside open hours", map[string]string{
-			"start_time": "space opens at " + slot.OpenTime,
-		})
-		return
-	}
-	if endMins > closeMins {
-		ValidationError(w, "booking outside open hours", map[string]string{
-			"end_time": "space closes at " + slot.CloseTime,
-		})
-		return
-	}
-
-	// min_notice_hours check
-	noticeHours := space.MinNoticeHours
-	if time.Until(startTime) < time.Duration(noticeHours)*time.Hour {
-		ValidationError(w, "booking too soon", map[string]string{
-			"start_time": "must be at least " + strconv.Itoa(int(noticeHours)) + " hour(s) from now",
-		})
-		return
-	}
-
-	// Duplicate active booking per renter per space
 	activeCount, err := h.q.CountActiveBookingsByRenterForSpace(r.Context(), store.CountActiveBookingsByRenterForSpaceParams{
 		RenterID: claims.ProfileID,
 		SpaceID:  spaceID,
@@ -184,44 +87,51 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		ServerError(w, r, err)
 		return
 	}
-	if activeCount > 0 {
-		Error(w, http.StatusConflict, "you already have an active booking for this space")
-		return
-	}
-
-	// Pending cap check
-	pendingMaxStr, err := h.q.GetSystemConfig(r.Context(), "max_pending_bookings_per_renter")
-	if err != nil {
-		ServerError(w, r, err)
-		return
-	}
-	pendingMax, _ := strconv.Atoi(pendingMaxStr)
 	pendingCount, err := h.q.CountPendingBookingsByRenter(r.Context(), claims.ProfileID)
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
-	if pendingMax > 0 && pendingCount >= int64(pendingMax) {
-		Error(w, http.StatusUnprocessableEntity, "pending booking limit reached; confirm or cancel existing bookings first")
+
+	maxBookingMins, _ := strconv.Atoi(configs["max_booking_minutes"])
+	platformFeePct, _ := strconv.Atoi(configs["platform_fee_pct"])
+	maxPendingCap, _ := strconv.Atoi(configs["max_pending_bookings_per_renter"])
+
+	var headcount *int32
+	if body.Headcount != nil {
+		v := int32(*body.Headcount)
+		headcount = &v
+	}
+
+	proposal, polErr := bk.Validate(bk.Request{
+		StartTime: startTime,
+		EndTime:   endTime,
+		Headcount: headcount,
+		Notes:     body.Notes,
+	}, bk.Inputs{
+		Space:        space,
+		Availability: avail,
+		Config: bk.Config{
+			MaxBookingMins: int32(maxBookingMins),
+			PlatformFeePct: int32(platformFeePct),
+			MaxPendingCap:  int32(maxPendingCap),
+		},
+		PendingCount: pendingCount,
+		ActiveCount:  activeCount,
+		Now:          time.Now(),
+	})
+	if polErr != nil {
+		status := polErr.Status
+		if len(polErr.Details) > 0 {
+			ValidationError(w, polErr.Message, polErr.Details)
+		} else {
+			Error(w, status, polErr.Message)
+		}
 		return
 	}
 
-	// Calculate price including weekend surcharge
-	hours := endTime.Sub(startTime).Hours()
-	isWeekend := startTime.Weekday() == time.Saturday || startTime.Weekday() == time.Sunday
-	totalPrice := calculatePrice(hours, space.HourlyRate, space.DailyRate, space.MinMinutes, space.WeekendSurchargePct, isWeekend)
-
-	// platform fee from system_config
-	platformFeePctStr, _ := h.q.GetSystemConfig(r.Context(), "platform_fee_pct")
-	platformFeePct, _ := strconv.Atoi(platformFeePctStr)
-	platformFee := int32(math.Round(float64(totalPrice) * float64(platformFeePct) / 100))
-
-	// expires_at = start_time - min_notice_hours
-	expiresAt := startTime.Add(-time.Duration(noticeHours) * time.Hour)
-
-	var booking store.Booking
+	var created store.Booking
 	if err := h.q.ExecTx(r.Context(), func(q store.Querier) error {
-		// overlap check vs existing bookings
 		count, err := q.CheckOverlappingBookings(r.Context(), store.CheckOverlappingBookingsParams{
 			SpaceID:   spaceID,
 			StartTime: startTime,
@@ -233,8 +143,6 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if count > 0 {
 			return errTimeSlotTaken
 		}
-
-		// overlap check vs space blocks
 		blockCount, err := q.CheckOverlappingSpaceBlocks(r.Context(), store.CheckOverlappingSpaceBlocksParams{
 			SpaceID:   spaceID,
 			StartTime: startTime,
@@ -247,43 +155,40 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return errTimeSlotTaken
 		}
 
-		var headcount sql.NullInt32
-		if body.Headcount != nil {
-			headcount = sql.NullInt32{Int32: int32(*body.Headcount), Valid: true}
+		var sqlHeadcount sql.NullInt32
+		if proposal.Headcount != nil {
+			sqlHeadcount = sql.NullInt32{Int32: *proposal.Headcount, Valid: true}
 		}
-		var notes sql.NullString
-		if body.Notes != "" {
-			notes = sql.NullString{String: body.Notes, Valid: true}
+		var sqlNotes sql.NullString
+		if proposal.Notes != "" {
+			sqlNotes = sql.NullString{String: proposal.Notes, Valid: true}
 		}
 
-		booking, err = q.CreateBooking(r.Context(), store.CreateBookingParams{
+		created, err = q.CreateBooking(r.Context(), store.CreateBookingParams{
 			SpaceID:     spaceID,
 			RenterID:    claims.ProfileID,
-			StartTime:   startTime,
-			EndTime:     endTime,
-			TotalPrice:  totalPrice,
-			PlatformFee: platformFee,
-			Headcount:   headcount,
-			Notes:       notes,
-			ExpiresAt:   sql.NullTime{Time: expiresAt, Valid: true},
+			StartTime:   proposal.StartTime,
+			EndTime:     proposal.EndTime,
+			TotalPrice:  proposal.TotalPrice,
+			PlatformFee: proposal.PlatformFee,
+			Headcount:   sqlHeadcount,
+			Notes:       sqlNotes,
+			ExpiresAt:   sql.NullTime{Time: proposal.ExpiresAt, Valid: true},
 		})
 		if err != nil {
 			return err
 		}
 
-		// Notify the space owner
-		ownerID := space.OwnerID
 		payload, _ := json.Marshal(map[string]string{
-			"booking_id": booking.ID.String(),
+			"booking_id": created.ID.String(),
 			"space_name": space.Name,
 		})
-		_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
-			ProfileID: ownerID,
+		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
+			ProfileID: space.OwnerID,
 			Type:      "booking_request",
 			Payload:   payload,
-			BookingID: uuid.NullUUID{UUID: booking.ID, Valid: true},
+			BookingID: uuid.NullUUID{UUID: created.ID, Valid: true},
 		})
-
 		return nil
 	}); err != nil {
 		if errors.Is(err, errTimeSlotTaken) {
@@ -294,7 +199,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	JSON(w, http.StatusCreated, booking)
+	JSON(w, http.StatusCreated, created)
 }
 
 // Get restricts visibility to the renter who made the booking or the owner of the space.
@@ -448,7 +353,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	// Validate state machine transitions
 	current := booking.Status
 	next := body.Status
-	if !isValidTransition(current, next) {
+	if !bk.IsValidTransition(current, next) {
 		Error(w, http.StatusUnprocessableEntity, "invalid status transition from "+string(current)+" to "+string(next))
 		return
 	}
@@ -473,11 +378,6 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		// Supersede previous notifications for this booking before creating new one
-		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
-			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
-		}
-
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
 		// Owner accepts → notify renter to upload payment slip
@@ -486,7 +386,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				"booking_id": updated.ID.String(),
 				"space_name": sp.Name,
 			})
-			_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+			pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 				ProfileID: booking.RenterID,
 				Type:      "payment_required",
 				Payload:   payload,
@@ -502,7 +402,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			})
 			if claims.Role == "renter" {
 				// renter cancels → notify owner
-				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+				pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 					ProfileID: sp.OwnerID,
 					Type:      "booking_cancelled_by_renter",
 					Payload:   payload,
@@ -510,7 +410,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				})
 			} else {
 				// owner declines/cancels → notify renter
-				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+				pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 					ProfileID: booking.RenterID,
 					Type:      "booking_cancelled_by_owner",
 					Payload:   payload,
@@ -560,68 +460,3 @@ func (h *BookingsHandler) ListMineOwner(w http.ResponseWriter, r *http.Request) 
 	JSON(w, http.StatusOK, nonNil(bookings))
 }
 
-// isValidTransition returns true if the status transition is allowed by the state machine.
-// pending → awaiting_payment (owner accepts) | cancelled
-// awaiting_payment → payment_review (renter uploads slip) | cancelled
-// payment_review → confirmed (admin) | awaiting_payment (admin retry) | cancelled (admin permanent reject)
-// confirmed → cancelled | completed (auto)
-func isValidTransition(from, to store.BookingStatus) bool {
-	switch from {
-	case store.BookingStatusPending:
-		return to == store.BookingStatusAwaitingPayment || to == store.BookingStatusCancelled
-	case store.BookingStatusAwaitingPayment:
-		return to == store.BookingStatusPaymentReview || to == store.BookingStatusCancelled
-	case store.BookingStatusPaymentReview:
-		return to == store.BookingStatusConfirmed || to == store.BookingStatusAwaitingPayment || to == store.BookingStatusCancelled
-	case store.BookingStatusConfirmed:
-		return to == store.BookingStatusCancelled
-	default:
-		return false
-	}
-}
-
-// calculatePrice derives the total in satang from space rates and booking duration.
-// Bookings under 24h are billed hourly (rounded up, minimum ceil(min_minutes/60)).
-// Bookings 24h or longer are billed daily (rounded up to the next full day).
-// Weekend surcharge is applied when isWeekend is true.
-func calculatePrice(hours float64, hourlyRate, dailyRate, minMinutes, weekendSurchargePct int32, isWeekend bool) int32 {
-	var base int32
-	if hours < 24 {
-		billable := int32(math.Ceil(hours))
-		minBillableHours := int32(math.Ceil(float64(minMinutes) / 60))
-		if billable < minBillableHours {
-			billable = minBillableHours
-		}
-		base = billable * hourlyRate
-	} else {
-		days := int32(math.Ceil(hours / 24))
-		base = days * dailyRate
-	}
-	if isWeekend && weekendSurchargePct > 0 {
-		surcharge := int32(math.Round(float64(base) * float64(weekendSurchargePct) / 100))
-		base += surcharge
-	}
-	return base
-}
-
-// parseTimeMins converts "HH:MM" string to minutes since midnight.
-func parseTimeMins(t string) int {
-	if len(t) < 5 {
-		return 0
-	}
-	h, _ := strconv.Atoi(t[:2])
-	m, _ := strconv.Atoi(t[3:5])
-	return h*60 + m
-}
-
-func formatDurationMins(mins int32) string {
-	if mins < 60 {
-		return strconv.Itoa(int(mins)) + " min"
-	}
-	h := mins / 60
-	m := mins % 60
-	if m == 0 {
-		return strconv.Itoa(int(h)) + " hr"
-	}
-	return strconv.Itoa(int(h)) + " hr " + strconv.Itoa(int(m)) + " min"
-}
