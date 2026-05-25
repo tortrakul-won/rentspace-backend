@@ -1,7 +1,50 @@
 package handler
 
+import (
+	"encoding/json"
+	"time"
+
+	"rentspace/backend/internal/store"
+)
+
 // request / response types used for the API boundary
 // handlers decode into these, then map to store.* types as needed
+
+// --- Notifications ---
+
+type NotificationResponse struct {
+	ID           string          `json:"id"`
+	ProfileID    string          `json:"profile_id"`
+	Type         string          `json:"type"`
+	Payload      json.RawMessage `json:"payload"`
+	BookingID    *string         `json:"booking_id"`
+	ReadAt       *string         `json:"read_at"`
+	SupersededAt *string         `json:"superseded_at"`
+	CreatedAt    string          `json:"created_at"`
+}
+
+func notificationToResponse(n store.Notification) NotificationResponse {
+	r := NotificationResponse{
+		ID:        n.ID.String(),
+		ProfileID: n.ProfileID.String(),
+		Type:      n.Type,
+		Payload:   n.Payload,
+		CreatedAt: n.CreatedAt.Format(time.RFC3339),
+	}
+	if n.BookingID.Valid {
+		s := n.BookingID.UUID.String()
+		r.BookingID = &s
+	}
+	if n.ReadAt.Valid {
+		s := n.ReadAt.Time.Format(time.RFC3339)
+		r.ReadAt = &s
+	}
+	if n.SupersededAt.Valid {
+		s := n.SupersededAt.Time.Format(time.RFC3339)
+		r.SupersededAt = &s
+	}
+	return r
+}
 
 // --- Auth ---
 
@@ -57,6 +100,7 @@ type UserResponse struct {
 	Email     string `json:"email"`
 	FullName  string `json:"full_name"`
 	Phone     string `json:"phone,omitempty"`
+	IsAdmin   bool   `json:"is_admin"`
 	CreatedAt string `json:"created_at"`
 }
 
@@ -116,12 +160,27 @@ type SetAvailabilityRequest struct {
 	Schedule []AvailabilitySlot `json:"schedule"`
 }
 
+type BlockedRange struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Type string `json:"type"` // "booking" | "block"
+}
+
+type DayAvailability struct {
+	Open          bool           `json:"open"`
+	OpenTime      string         `json:"open_time,omitempty"`
+	CloseTime     string         `json:"close_time,omitempty"`
+	BlockedRanges []BlockedRange `json:"blocked_ranges"`
+}
+
 // --- Bookings ---
 
 type CreateBookingRequest struct {
 	SpaceID   string `json:"space_id"`
 	StartTime string `json:"start_time"`
 	EndTime   string `json:"end_time"`
+	Headcount *int   `json:"headcount,omitempty"`
+	Notes     string `json:"notes,omitempty"`
 	// total_price and platform_fee are server-calculated — not accepted from the client
 }
 

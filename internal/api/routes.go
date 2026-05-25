@@ -36,6 +36,10 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 		// POST /auth/login — verify credentials, returns JWT + all profiles
 		r.Post("/auth/login", authHandler.Login)
 
+		// GET /config/payment — public payment config (promptpay details)
+		configHandler := handler.NewConfigHandler(q)
+		r.Get("/config/payment", configHandler.PaymentConfig)
+
 		// all routes below require a valid JWT in Authorization: Bearer <token>
 		spacesHandler := handler.NewSpacesHandler(q)
 		// Public reads — OptionalAuth so authenticated users get personalised results (own spaces excluded).
@@ -71,12 +75,38 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			bookingsHandler := handler.NewBookingsHandler(q)
 			// POST  /bookings             — create a booking (renter profile only; renter_id taken from JWT)
 			r.Post("/bookings", bookingsHandler.Create)
+			// GET   /bookings/mine        — list all bookings for the authenticated renter
+			r.Get("/bookings/mine", bookingsHandler.ListMine)
+			// GET   /bookings/owner       — list all bookings across owner's spaces
+			r.Get("/bookings/owner", bookingsHandler.ListMineOwner)
 			// GET   /bookings/{id}        — get a single booking by ID
 			r.Get("/bookings/{id}", bookingsHandler.Get)
-			// PATCH /bookings/{id}/status — update booking status (pending → confirmed → completed / cancelled)
+			// PATCH /bookings/{id}/status — update booking status (pending → confirmed / cancelled)
 			r.Patch("/bookings/{id}/status", bookingsHandler.UpdateStatus)
 			// GET   /spaces/{id}/bookings — list all bookings for a space
 			r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)
+
+			notificationsHandler := handler.NewNotificationsHandler(q)
+			// GET   /notifications        — list recent notifications for the active profile
+			r.Get("/notifications", notificationsHandler.List)
+			// GET   /notifications/unread-count — count unread notifications
+			r.Get("/notifications/unread-count", notificationsHandler.UnreadCount)
+			// POST  /notifications/{id}/read — mark a notification read
+			r.Post("/notifications/{id}/read", notificationsHandler.MarkRead)
+			// POST  /notifications/read-all — mark all notifications read
+			r.Post("/notifications/read-all", notificationsHandler.MarkAllRead)
+
+			// Admin routes — require is_admin flag in JWT
+			r.Group(func(r chi.Router) {
+				r.Use(appMiddleware.RequireAdmin)
+				adminHandler := handler.NewAdminHandler(q)
+				// GET  /admin/bookings          — list all payment_pending bookings
+				r.Get("/admin/bookings", adminHandler.ListPaymentPending)
+				// POST /admin/bookings/{id}/approve — confirm payment → booking confirmed
+				r.Post("/admin/bookings/{id}/approve", adminHandler.Approve)
+				// POST /admin/bookings/{id}/reject  — reject payment → booking cancelled
+				r.Post("/admin/bookings/{id}/reject", adminHandler.Reject)
+			})
 		})
 	})
 

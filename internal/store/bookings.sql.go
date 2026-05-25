@@ -7,15 +7,171 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
+
+const bulkCompleteConfirmedBookings = `-- name: BulkCompleteConfirmedBookings :many
+UPDATE bookings
+SET status = 'completed', updated_at = NOW()
+WHERE status   = 'confirmed'
+  AND end_time <= NOW()
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason
+`
+
+func (q *Queries) BulkCompleteConfirmedBookings(ctx context.Context) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, bulkCompleteConfirmedBookings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const bulkExpirePendingBookings = `-- name: BulkExpirePendingBookings :many
+UPDATE bookings
+SET status = 'cancelled', cancel_reason = 'expired', updated_at = NOW()
+WHERE status     = 'pending'
+  AND expires_at IS NOT NULL
+  AND expires_at <= NOW()
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason
+`
+
+func (q *Queries) BulkExpirePendingBookings(ctx context.Context) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, bulkExpirePendingBookings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const cancelOverlappingPendingBookings = `-- name: CancelOverlappingPendingBookings :many
+UPDATE bookings
+SET status = 'cancelled', cancel_reason = 'auto_cancelled', updated_at = NOW()
+WHERE renter_id  = $1
+  AND id        != $2
+  AND status     IN ('pending', 'payment_pending')
+  AND start_time < $4
+  AND end_time   > $3
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason
+`
+
+type CancelOverlappingPendingBookingsParams struct {
+	RenterID  uuid.UUID `json:"renter_id"`
+	ID        uuid.UUID `json:"id"`
+	EndTime   time.Time `json:"end_time"`
+	StartTime time.Time `json:"start_time"`
+}
+
+func (q *Queries) CancelOverlappingPendingBookings(ctx context.Context, arg CancelOverlappingPendingBookingsParams) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, cancelOverlappingPendingBookings,
+		arg.RenterID,
+		arg.ID,
+		arg.EndTime,
+		arg.StartTime,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
 
 const checkOverlappingBookings = `-- name: CheckOverlappingBookings :one
 SELECT COUNT(*) FROM bookings
 WHERE space_id   = $1
-  AND status     IN ('pending', 'confirmed')
+  AND status     IN ('pending', 'payment_pending', 'confirmed')
   AND start_time < $3
   AND end_time   > $2
 `
@@ -33,6 +189,25 @@ func (q *Queries) CheckOverlappingBookings(ctx context.Context, arg CheckOverlap
 	return count, err
 }
 
+const countActiveBookingsByRenterForSpace = `-- name: CountActiveBookingsByRenterForSpace :one
+SELECT COUNT(*) FROM bookings
+WHERE renter_id = $1
+  AND space_id  = $2
+  AND status    IN ('pending', 'payment_pending', 'confirmed')
+`
+
+type CountActiveBookingsByRenterForSpaceParams struct {
+	RenterID uuid.UUID `json:"renter_id"`
+	SpaceID  uuid.UUID `json:"space_id"`
+}
+
+func (q *Queries) CountActiveBookingsByRenterForSpace(ctx context.Context, arg CountActiveBookingsByRenterForSpaceParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveBookingsByRenterForSpace, arg.RenterID, arg.SpaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countBookingsBySpace = `-- name: CountBookingsBySpace :one
 SELECT COUNT(*) FROM bookings WHERE space_id = $1
 `
@@ -44,19 +219,35 @@ func (q *Queries) CountBookingsBySpace(ctx context.Context, spaceID uuid.UUID) (
 	return count, err
 }
 
+const countPendingBookingsByRenter = `-- name: CountPendingBookingsByRenter :one
+SELECT COUNT(*) FROM bookings
+WHERE renter_id = $1
+  AND status    IN ('pending', 'payment_pending')
+`
+
+func (q *Queries) CountPendingBookingsByRenter(ctx context.Context, renterID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingBookingsByRenter, renterID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBooking = `-- name: CreateBooking :one
-INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at
+INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee, headcount, notes, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason
 `
 
 type CreateBookingParams struct {
-	SpaceID     uuid.UUID `json:"space_id"`
-	RenterID    uuid.UUID `json:"renter_id"`
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	TotalPrice  int32     `json:"total_price"`
-	PlatformFee int32     `json:"platform_fee"`
+	SpaceID     uuid.UUID      `json:"space_id"`
+	RenterID    uuid.UUID      `json:"renter_id"`
+	StartTime   time.Time      `json:"start_time"`
+	EndTime     time.Time      `json:"end_time"`
+	TotalPrice  int32          `json:"total_price"`
+	PlatformFee int32          `json:"platform_fee"`
+	Headcount   sql.NullInt32  `json:"headcount"`
+	Notes       sql.NullString `json:"notes"`
+	ExpiresAt   sql.NullTime   `json:"expires_at"`
 }
 
 func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error) {
@@ -67,6 +258,9 @@ func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (B
 		arg.EndTime,
 		arg.TotalPrice,
 		arg.PlatformFee,
+		arg.Headcount,
+		arg.Notes,
+		arg.ExpiresAt,
 	)
 	var i Booking
 	err := row.Scan(
@@ -80,12 +274,16 @@ func (q *Queries) CreateBooking(ctx context.Context, arg CreateBookingParams) (B
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Headcount,
+		&i.Notes,
+		&i.ExpiresAt,
+		&i.CancelReason,
 	)
 	return i, err
 }
 
 const getBookingByID = `-- name: GetBookingByID :one
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings WHERE id = $1
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason FROM bookings WHERE id = $1
 `
 
 func (q *Queries) GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, error) {
@@ -102,12 +300,183 @@ func (q *Queries) GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, er
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Headcount,
+		&i.Notes,
+		&i.ExpiresAt,
+		&i.CancelReason,
 	)
 	return i, err
 }
 
+const listActiveBookingsInRange = `-- name: ListActiveBookingsInRange :many
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason FROM bookings
+WHERE space_id   = $1
+  AND status     IN ('pending', 'payment_pending', 'confirmed')
+  AND start_time < $3
+  AND end_time   > $2
+ORDER BY start_time ASC
+`
+
+type ListActiveBookingsInRangeParams struct {
+	SpaceID   uuid.UUID `json:"space_id"`
+	EndTime   time.Time `json:"end_time"`
+	StartTime time.Time `json:"start_time"`
+}
+
+func (q *Queries) ListActiveBookingsInRange(ctx context.Context, arg ListActiveBookingsInRangeParams) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveBookingsInRange, arg.SpaceID, arg.EndTime, arg.StartTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBookingsByOwner = `-- name: ListBookingsByOwner :many
+SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason FROM bookings b
+JOIN spaces s ON s.id = b.space_id
+WHERE s.owner_id = $1
+ORDER BY b.start_time DESC
+`
+
+func (q *Queries) ListBookingsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Booking, error) {
+	rows, err := q.db.QueryContext(ctx, listBookingsByOwner, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Booking
+	for rows.Next() {
+		var i Booking
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBookingsByOwnerEnriched = `-- name: ListBookingsByOwnerEnriched :many
+SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason, s.name AS space_name, s.location AS space_location, s.images AS space_images
+FROM bookings b
+JOIN spaces s ON s.id = b.space_id
+WHERE s.owner_id = $1
+ORDER BY b.start_time DESC
+`
+
+type ListBookingsByOwnerEnrichedRow struct {
+	ID            uuid.UUID      `json:"id"`
+	SpaceID       uuid.UUID      `json:"space_id"`
+	RenterID      uuid.UUID      `json:"renter_id"`
+	StartTime     time.Time      `json:"start_time"`
+	EndTime       time.Time      `json:"end_time"`
+	TotalPrice    int32          `json:"total_price"`
+	PlatformFee   int32          `json:"platform_fee"`
+	Status        BookingStatus  `json:"status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	Headcount     sql.NullInt32  `json:"headcount"`
+	Notes         sql.NullString `json:"notes"`
+	ExpiresAt     sql.NullTime   `json:"expires_at"`
+	CancelReason  sql.NullString `json:"cancel_reason"`
+	SpaceName     string         `json:"space_name"`
+	SpaceLocation string         `json:"space_location"`
+	SpaceImages   []string       `json:"space_images"`
+}
+
+func (q *Queries) ListBookingsByOwnerEnriched(ctx context.Context, ownerID uuid.UUID) ([]ListBookingsByOwnerEnrichedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listBookingsByOwnerEnriched, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBookingsByOwnerEnrichedRow
+	for rows.Next() {
+		var i ListBookingsByOwnerEnrichedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+			&i.SpaceName,
+			&i.SpaceLocation,
+			pq.Array(&i.SpaceImages),
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBookingsByRenter = `-- name: ListBookingsByRenter :many
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason FROM bookings
 WHERE renter_id = $1
 ORDER BY start_time DESC
 `
@@ -132,6 +501,79 @@ func (q *Queries) ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) 
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBookingsByRenterEnriched = `-- name: ListBookingsByRenterEnriched :many
+SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason, s.name AS space_name, s.location AS space_location, s.images AS space_images
+FROM bookings b
+JOIN spaces s ON s.id = b.space_id
+WHERE b.renter_id = $1
+ORDER BY b.start_time DESC
+`
+
+type ListBookingsByRenterEnrichedRow struct {
+	ID            uuid.UUID      `json:"id"`
+	SpaceID       uuid.UUID      `json:"space_id"`
+	RenterID      uuid.UUID      `json:"renter_id"`
+	StartTime     time.Time      `json:"start_time"`
+	EndTime       time.Time      `json:"end_time"`
+	TotalPrice    int32          `json:"total_price"`
+	PlatformFee   int32          `json:"platform_fee"`
+	Status        BookingStatus  `json:"status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	Headcount     sql.NullInt32  `json:"headcount"`
+	Notes         sql.NullString `json:"notes"`
+	ExpiresAt     sql.NullTime   `json:"expires_at"`
+	CancelReason  sql.NullString `json:"cancel_reason"`
+	SpaceName     string         `json:"space_name"`
+	SpaceLocation string         `json:"space_location"`
+	SpaceImages   []string       `json:"space_images"`
+}
+
+func (q *Queries) ListBookingsByRenterEnriched(ctx context.Context, renterID uuid.UUID) ([]ListBookingsByRenterEnrichedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listBookingsByRenterEnriched, renterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBookingsByRenterEnrichedRow
+	for rows.Next() {
+		var i ListBookingsByRenterEnrichedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+			&i.SpaceName,
+			&i.SpaceLocation,
+			pq.Array(&i.SpaceImages),
 		); err != nil {
 			return nil, err
 		}
@@ -147,7 +589,7 @@ func (q *Queries) ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) 
 }
 
 const listBookingsBySpace = `-- name: ListBookingsBySpace :many
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason FROM bookings
 WHERE space_id = $1
 ORDER BY start_time DESC
 `
@@ -172,6 +614,10 @@ func (q *Queries) ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
 		); err != nil {
 			return nil, err
 		}
@@ -187,7 +633,7 @@ func (q *Queries) ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([
 }
 
 const listBookingsBySpacePaginated = `-- name: ListBookingsBySpacePaginated :many
-SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at FROM bookings
+SELECT id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason FROM bookings
 WHERE space_id = $1
 ORDER BY start_time DESC
 LIMIT $2 OFFSET $3
@@ -219,6 +665,10 @@ func (q *Queries) ListBookingsBySpacePaginated(ctx context.Context, arg ListBook
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
 		); err != nil {
 			return nil, err
 		}
@@ -234,18 +684,19 @@ func (q *Queries) ListBookingsBySpacePaginated(ctx context.Context, arg ListBook
 }
 
 const updateBookingStatus = `-- name: UpdateBookingStatus :one
-UPDATE bookings SET status = $2, updated_at = NOW()
+UPDATE bookings SET status = $2, cancel_reason = $3, updated_at = NOW()
 WHERE id = $1
-RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason
 `
 
 type UpdateBookingStatusParams struct {
-	ID     uuid.UUID     `json:"id"`
-	Status BookingStatus `json:"status"`
+	ID           uuid.UUID      `json:"id"`
+	Status       BookingStatus  `json:"status"`
+	CancelReason sql.NullString `json:"cancel_reason"`
 }
 
 func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error) {
-	row := q.db.QueryRowContext(ctx, updateBookingStatus, arg.ID, arg.Status)
+	row := q.db.QueryRowContext(ctx, updateBookingStatus, arg.ID, arg.Status, arg.CancelReason)
 	var i Booking
 	err := row.Scan(
 		&i.ID,
@@ -258,6 +709,82 @@ func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStat
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Headcount,
+		&i.Notes,
+		&i.ExpiresAt,
+		&i.CancelReason,
 	)
 	return i, err
+}
+
+const listPaymentPendingBookings = `-- name: ListPaymentPendingBookings :many
+SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason, s.name AS space_name, s.location AS space_location, s.images AS space_images, p.display_name AS renter_name
+FROM bookings b
+JOIN spaces s ON s.id = b.space_id
+JOIN profiles p ON p.id = b.renter_id
+WHERE b.status = 'payment_pending'
+ORDER BY b.created_at ASC
+`
+
+type ListPaymentPendingBookingsRow struct {
+	ID            uuid.UUID      `json:"id"`
+	SpaceID       uuid.UUID      `json:"space_id"`
+	RenterID      uuid.UUID      `json:"renter_id"`
+	StartTime     time.Time      `json:"start_time"`
+	EndTime       time.Time      `json:"end_time"`
+	TotalPrice    int32          `json:"total_price"`
+	PlatformFee   int32          `json:"platform_fee"`
+	Status        BookingStatus  `json:"status"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	Headcount     sql.NullInt32  `json:"headcount"`
+	Notes         sql.NullString `json:"notes"`
+	ExpiresAt     sql.NullTime   `json:"expires_at"`
+	CancelReason  sql.NullString `json:"cancel_reason"`
+	SpaceName     string         `json:"space_name"`
+	SpaceLocation string         `json:"space_location"`
+	SpaceImages   []string       `json:"space_images"`
+	RenterName    string         `json:"renter_name"`
+}
+
+func (q *Queries) ListPaymentPendingBookings(ctx context.Context) ([]ListPaymentPendingBookingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPaymentPendingBookings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPaymentPendingBookingsRow
+	for rows.Next() {
+		var i ListPaymentPendingBookingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SpaceID,
+			&i.RenterID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.TotalPrice,
+			&i.PlatformFee,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Headcount,
+			&i.Notes,
+			&i.ExpiresAt,
+			&i.CancelReason,
+			&i.SpaceName,
+			&i.SpaceLocation,
+			pq.Array(&i.SpaceImages),
+			&i.RenterName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -15,7 +15,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, full_name, phone)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, full_name, phone, created_at, updated_at
+RETURNING id, email, password_hash, full_name, phone, is_admin, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -39,6 +39,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PasswordHash,
 		&i.FullName,
 		&i.Phone,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -46,7 +47,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, full_name, phone, created_at, updated_at FROM users WHERE email = $1
+SELECT id, email, password_hash, full_name, phone, is_admin, created_at, updated_at FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -58,6 +59,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PasswordHash,
 		&i.FullName,
 		&i.Phone,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -65,7 +67,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, full_name, phone, created_at, updated_at FROM users WHERE id = $1
+SELECT id, email, password_hash, full_name, phone, is_admin, created_at, updated_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -77,6 +79,34 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.PasswordHash,
 		&i.FullName,
 		&i.Phone,
+		&i.IsAdmin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setUserAdmin = `-- name: SetUserAdmin :one
+UPDATE users SET is_admin = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, email, password_hash, full_name, phone, is_admin, created_at, updated_at
+`
+
+type SetUserAdminParams struct {
+	ID      uuid.UUID `json:"id"`
+	IsAdmin bool      `json:"is_admin"`
+}
+
+func (q *Queries) SetUserAdmin(ctx context.Context, arg SetUserAdminParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, setUserAdmin, arg.ID, arg.IsAdmin)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.Phone,
+		&i.IsAdmin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

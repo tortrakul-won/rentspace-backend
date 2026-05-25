@@ -7,6 +7,7 @@ package store
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -16,10 +17,11 @@ import (
 type BookingStatus string
 
 const (
-	BookingStatusPending   BookingStatus = "pending"
-	BookingStatusConfirmed BookingStatus = "confirmed"
-	BookingStatusCompleted BookingStatus = "completed"
-	BookingStatusCancelled BookingStatus = "cancelled"
+	BookingStatusPending        BookingStatus = "pending"
+	BookingStatusPaymentPending BookingStatus = "payment_pending"
+	BookingStatusConfirmed      BookingStatus = "confirmed"
+	BookingStatusCompleted      BookingStatus = "completed"
+	BookingStatusCancelled      BookingStatus = "cancelled"
 )
 
 func (e *BookingStatus) Scan(src interface{}) error {
@@ -147,16 +149,31 @@ func (ns NullSpaceCategory) Value() (driver.Value, error) {
 }
 
 type Booking struct {
-	ID          uuid.UUID     `json:"id"`
-	SpaceID     uuid.UUID     `json:"space_id"`
-	RenterID    uuid.UUID     `json:"renter_id"`
-	StartTime   time.Time     `json:"start_time"`
-	EndTime     time.Time     `json:"end_time"`
-	TotalPrice  int32         `json:"total_price"`
-	PlatformFee int32         `json:"platform_fee"`
-	Status      BookingStatus `json:"status"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	ID          uuid.UUID      `json:"id"`
+	SpaceID     uuid.UUID      `json:"space_id"`
+	RenterID    uuid.UUID      `json:"renter_id"`
+	StartTime   time.Time      `json:"start_time"`
+	EndTime     time.Time      `json:"end_time"`
+	TotalPrice  int32          `json:"total_price"`
+	PlatformFee int32          `json:"platform_fee"`
+	Status      BookingStatus  `json:"status"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	Headcount    sql.NullInt32  `json:"headcount"`
+	Notes        sql.NullString `json:"notes"`
+	ExpiresAt    sql.NullTime   `json:"expires_at"`
+	CancelReason sql.NullString `json:"cancel_reason"`
+}
+
+type Notification struct {
+	ID           uuid.UUID       `json:"id"`
+	ProfileID    uuid.UUID       `json:"profile_id"`
+	Type         string          `json:"type"`
+	Payload      json.RawMessage `json:"payload"`
+	ReadAt       sql.NullTime    `json:"read_at"`
+	SupersededAt sql.NullTime    `json:"superseded_at"`
+	CreatedAt    time.Time       `json:"created_at"`
+	BookingID    uuid.NullUUID   `json:"booking_id"`
 }
 
 type Profile struct {
@@ -189,6 +206,10 @@ type Space struct {
 	CreatedAt           time.Time     `json:"created_at"`
 	UpdatedAt           time.Time     `json:"updated_at"`
 	WeekendSurchargePct int32         `json:"weekend_surcharge_pct"`
+	MinNoticeHours      int32         `json:"min_notice_hours"`
+	MaxBookingMinutes   sql.NullInt32 `json:"max_booking_minutes"`
+	TurnaroundMinutes   int32         `json:"turnaround_minutes"`
+	DepositPct          int32         `json:"deposit_pct"`
 }
 
 type SpaceAvailability struct {
@@ -199,12 +220,28 @@ type SpaceAvailability struct {
 	CloseTime string    `json:"close_time"`
 }
 
+type SpaceBlock struct {
+	ID        uuid.UUID      `json:"id"`
+	SpaceID   uuid.UUID      `json:"space_id"`
+	StartTime time.Time      `json:"start_time"`
+	EndTime   time.Time      `json:"end_time"`
+	Reason    sql.NullString `json:"reason"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+type SystemConfig struct {
+	Key       string    `json:"key"`
+	Value     string    `json:"value"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type User struct {
 	ID           uuid.UUID      `json:"id"`
 	Email        string         `json:"email"`
 	PasswordHash string         `json:"password_hash"`
 	FullName     string         `json:"full_name"`
 	Phone        sql.NullString `json:"phone"`
+	IsAdmin      bool           `json:"is_admin"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
