@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"rentspace/backend/internal/hub"
+	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
 )
 
@@ -40,6 +41,8 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims := middleware.ClaimsFromCtx(r.Context())
+
 	booking, err := h.q.GetBookingByID(r.Context(), id)
 	if err != nil {
 		Error(w, http.StatusNotFound, "booking not found")
@@ -47,6 +50,12 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	}
 	if booking.Status != store.BookingStatusPaymentReview {
 		Error(w, http.StatusUnprocessableEntity, "booking must be in payment_review state to approve")
+		return
+	}
+
+	renterProfile, err := h.q.GetProfileByID(r.Context(), booking.RenterID)
+	if err == nil && renterProfile.UserID == claims.UserID {
+		Error(w, http.StatusForbidden, "cannot approve your own booking")
 		return
 	}
 
