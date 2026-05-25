@@ -1,6 +1,6 @@
 -- name: CreateNotification :one
-INSERT INTO notifications (profile_id, type, payload)
-VALUES ($1, $2, $3)
+INSERT INTO notifications (profile_id, type, payload, booking_id)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: ListNotificationsByProfile :many
@@ -20,3 +20,7 @@ WHERE id = $1 AND profile_id = $2;
 -- name: MarkAllNotificationsRead :exec
 UPDATE notifications SET read_at = NOW()
 WHERE profile_id = $1 AND read_at IS NULL;
+
+-- name: SupersedeNotificationsByBooking :exec
+UPDATE notifications SET superseded_at = NOW()
+WHERE booking_id = $1 AND superseded_at IS NULL;

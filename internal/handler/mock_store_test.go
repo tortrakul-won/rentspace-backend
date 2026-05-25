@@ -60,6 +60,8 @@ type mockStore struct {
 	updateBookingStatus      func(ctx context.Context, arg store.UpdateBookingStatusParams) (store.Booking, error)
 	checkOverlappingBookings              func(ctx context.Context, arg store.CheckOverlappingBookingsParams) (int64, error)
 	listActiveBookingsInRange             func(ctx context.Context, arg store.ListActiveBookingsInRangeParams) ([]store.Booking, error)
+	listBookingsByRenterEnriched          func(ctx context.Context, renterID uuid.UUID) ([]store.ListBookingsByRenterEnrichedRow, error)
+	listBookingsByOwnerEnriched           func(ctx context.Context, ownerID uuid.UUID) ([]store.ListBookingsByOwnerEnrichedRow, error)
 	bulkCompleteConfirmedBookings         func(ctx context.Context) ([]store.Booking, error)
 	bulkExpirePendingBookings             func(ctx context.Context) ([]store.Booking, error)
 	cancelOverlappingPendingBookings      func(ctx context.Context, arg store.CancelOverlappingPendingBookingsParams) ([]store.Booking, error)
@@ -77,6 +79,9 @@ type mockStore struct {
 	countUnreadNotifications              func(ctx context.Context, profileID uuid.UUID) (int64, error)
 	markNotificationRead                  func(ctx context.Context, arg store.MarkNotificationReadParams) error
 	markAllNotificationsRead              func(ctx context.Context, profileID uuid.UUID) error
+	listPaymentPendingBookings            func(ctx context.Context) ([]store.ListPaymentPendingBookingsRow, error)
+	setUserAdmin                          func(ctx context.Context, arg store.SetUserAdminParams) (store.User, error)
+	supersedeNotificationsByBooking       func(ctx context.Context, bookingID uuid.UUID) error
 }
 
 func (m *mockStore) ExecTx(ctx context.Context, fn func(store.Querier) error) error {
@@ -314,6 +319,18 @@ func (m *mockStore) ListActiveBookingsInRange(ctx context.Context, arg store.Lis
 	}
 	return nil, nil
 }
+func (m *mockStore) ListBookingsByRenterEnriched(ctx context.Context, renterID uuid.UUID) ([]store.ListBookingsByRenterEnrichedRow, error) {
+	if m.listBookingsByRenterEnriched != nil {
+		return m.listBookingsByRenterEnriched(ctx, renterID)
+	}
+	return nil, nil
+}
+func (m *mockStore) ListBookingsByOwnerEnriched(ctx context.Context, ownerID uuid.UUID) ([]store.ListBookingsByOwnerEnrichedRow, error) {
+	if m.listBookingsByOwnerEnriched != nil {
+		return m.listBookingsByOwnerEnriched(ctx, ownerID)
+	}
+	return nil, nil
+}
 func (m *mockStore) BulkCompleteConfirmedBookings(ctx context.Context) ([]store.Booking, error) {
 	if m.bulkCompleteConfirmedBookings != nil {
 		return m.bulkCompleteConfirmedBookings(ctx)
@@ -413,6 +430,25 @@ func (m *mockStore) MarkNotificationRead(ctx context.Context, arg store.MarkNoti
 func (m *mockStore) MarkAllNotificationsRead(ctx context.Context, profileID uuid.UUID) error {
 	if m.markAllNotificationsRead != nil {
 		return m.markAllNotificationsRead(ctx, profileID)
+	}
+	return nil
+}
+func (m *mockStore) ListPaymentPendingBookings(ctx context.Context) ([]store.ListPaymentPendingBookingsRow, error) {
+	if m.listPaymentPendingBookings != nil {
+		return m.listPaymentPendingBookings(ctx)
+	}
+	return nil, nil
+}
+func (m *mockStore) SetUserAdmin(ctx context.Context, arg store.SetUserAdminParams) (store.User, error) {
+	if m.setUserAdmin != nil {
+		return m.setUserAdmin(ctx, arg)
+	}
+	return store.User{}, errors.New("not implemented")
+}
+
+func (m *mockStore) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error {
+	if m.supersedeNotificationsByBooking != nil {
+		return m.supersedeNotificationsByBooking(ctx, bookingID)
 	}
 	return nil
 }

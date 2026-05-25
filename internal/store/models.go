@@ -17,10 +17,11 @@ import (
 type BookingStatus string
 
 const (
-	BookingStatusPending   BookingStatus = "pending"
-	BookingStatusConfirmed BookingStatus = "confirmed"
-	BookingStatusCompleted BookingStatus = "completed"
-	BookingStatusCancelled BookingStatus = "cancelled"
+	BookingStatusPending        BookingStatus = "pending"
+	BookingStatusPaymentPending BookingStatus = "payment_pending"
+	BookingStatusConfirmed      BookingStatus = "confirmed"
+	BookingStatusCompleted      BookingStatus = "completed"
+	BookingStatusCancelled      BookingStatus = "cancelled"
 )
 
 func (e *BookingStatus) Scan(src interface{}) error {
@@ -158,18 +159,21 @@ type Booking struct {
 	Status      BookingStatus  `json:"status"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
-	Headcount   sql.NullInt32  `json:"headcount"`
-	Notes       sql.NullString `json:"notes"`
-	ExpiresAt   sql.NullTime   `json:"expires_at"`
+	Headcount    sql.NullInt32  `json:"headcount"`
+	Notes        sql.NullString `json:"notes"`
+	ExpiresAt    sql.NullTime   `json:"expires_at"`
+	CancelReason sql.NullString `json:"cancel_reason"`
 }
 
 type Notification struct {
-	ID        uuid.UUID       `json:"id"`
-	ProfileID uuid.UUID       `json:"profile_id"`
-	Type      string          `json:"type"`
-	Payload   json.RawMessage `json:"payload"`
-	ReadAt    sql.NullTime    `json:"read_at"`
-	CreatedAt time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	ProfileID    uuid.UUID       `json:"profile_id"`
+	Type         string          `json:"type"`
+	Payload      json.RawMessage `json:"payload"`
+	ReadAt       sql.NullTime    `json:"read_at"`
+	SupersededAt sql.NullTime    `json:"superseded_at"`
+	CreatedAt    time.Time       `json:"created_at"`
+	BookingID    uuid.NullUUID   `json:"booking_id"`
 }
 
 type Profile struct {
@@ -237,6 +241,7 @@ type User struct {
 	PasswordHash string         `json:"password_hash"`
 	FullName     string         `json:"full_name"`
 	Phone        sql.NullString `json:"phone"`
+	IsAdmin      bool           `json:"is_admin"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }

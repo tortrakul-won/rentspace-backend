@@ -25,19 +25,20 @@ func (q *Queries) CountUnreadNotifications(ctx context.Context, profileID uuid.U
 }
 
 const createNotification = `-- name: CreateNotification :one
-INSERT INTO notifications (profile_id, type, payload)
-VALUES ($1, $2, $3)
-RETURNING id, profile_id, type, payload, read_at, created_at
+INSERT INTO notifications (profile_id, type, payload, booking_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, profile_id, type, payload, read_at, superseded_at, created_at, booking_id
 `
 
 type CreateNotificationParams struct {
 	ProfileID uuid.UUID       `json:"profile_id"`
 	Type      string          `json:"type"`
 	Payload   json.RawMessage `json:"payload"`
+	BookingID uuid.NullUUID   `json:"booking_id"`
 }
 
 func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error) {
-	row := q.db.QueryRowContext(ctx, createNotification, arg.ProfileID, arg.Type, arg.Payload)
+	row := q.db.QueryRowContext(ctx, createNotification, arg.ProfileID, arg.Type, arg.Payload, arg.BookingID)
 	var i Notification
 	err := row.Scan(
 		&i.ID,
@@ -45,13 +46,15 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		&i.Type,
 		&i.Payload,
 		&i.ReadAt,
+		&i.SupersededAt,
 		&i.CreatedAt,
+		&i.BookingID,
 	)
 	return i, err
 }
 
 const listNotificationsByProfile = `-- name: ListNotificationsByProfile :many
-SELECT id, profile_id, type, payload, read_at, created_at FROM notifications
+SELECT id, profile_id, type, payload, read_at, superseded_at, created_at, booking_id FROM notifications
 WHERE profile_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -77,7 +80,9 @@ func (q *Queries) ListNotificationsByProfile(ctx context.Context, arg ListNotifi
 			&i.Type,
 			&i.Payload,
 			&i.ReadAt,
+			&i.SupersededAt,
 			&i.CreatedAt,
+			&i.BookingID,
 		); err != nil {
 			return nil, err
 		}
@@ -114,5 +119,15 @@ type MarkNotificationReadParams struct {
 
 func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error {
 	_, err := q.db.ExecContext(ctx, markNotificationRead, arg.ID, arg.ProfileID)
+	return err
+}
+
+const supersedeNotificationsByBooking = `-- name: SupersedeNotificationsByBooking :exec
+UPDATE notifications SET superseded_at = NOW()
+WHERE booking_id = $1 AND superseded_at IS NULL
+`
+
+func (q *Queries) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, supersedeNotificationsByBooking, bookingID)
 	return err
 }

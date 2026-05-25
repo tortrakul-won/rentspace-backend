@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
@@ -279,6 +281,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			ProfileID: ownerID,
 			Type:      "booking_request",
 			Payload:   payload,
+			BookingID: uuid.NullUUID{UUID: booking.ID, Valid: true},
 		})
 
 		return nil
@@ -377,9 +380,10 @@ func (h *BookingsHandler) ListBySpace(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateStatus enforces role-based state machine transitions.
-// owner: pending → confirmed, pending/confirmed → cancelled
-// renter: pending/confirmed → cancelled only
+// owner: pending → payment_pending (accept), pending/payment_pending/confirmed → cancelled
+// renter: pending/payment_pending/confirmed → cancelled only
 // completed is automatic only — no manual trigger allowed.
+// Admin approval (payment_pending → confirmed) is handled by the admin handler.
 func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFromCtx(r.Context())
 
@@ -405,6 +409,11 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusForbidden, "completed status is set automatically when the booking end time passes")
 		return
 	}
+	// confirmed requires admin approval via /admin/bookings/:id/approve
+	if body.Status == store.BookingStatusConfirmed {
+		Error(w, http.StatusForbidden, "payment confirmation is handled by admin")
+		return
+	}
 
 	switch claims.Role {
 	case "renter":
@@ -426,8 +435,8 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			Error(w, http.StatusBadRequest, "cannot revert a booking to pending")
 			return
 		}
-		// owner can only: confirmed (accept), cancelled (decline)
-		if body.Status != store.BookingStatusConfirmed && body.Status != store.BookingStatusCancelled {
+		// owner can only: payment_pending (accept), cancelled (decline)
+		if body.Status != store.BookingStatusPaymentPending && body.Status != store.BookingStatusCancelled {
 			Error(w, http.StatusBadRequest, "invalid status transition")
 			return
 		}
@@ -447,70 +456,65 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	var updated store.Booking
 	if err := h.q.ExecTx(r.Context(), func(q store.Querier) error {
 		var err error
+		cancelReason := sql.NullString{}
+		if next == store.BookingStatusCancelled {
+			if claims.Role == "renter" {
+				cancelReason = sql.NullString{String: "renter_cancelled", Valid: true}
+			} else {
+				cancelReason = sql.NullString{String: "owner_declined", Valid: true}
+			}
+		}
 		updated, err = q.UpdateBookingStatus(r.Context(), store.UpdateBookingStatusParams{
-			ID:     id,
-			Status: next,
+			ID:           id,
+			Status:       next,
+			CancelReason: cancelReason,
 		})
 		if err != nil {
 			return err
 		}
 
-		// On confirm: auto-cancel other overlapping pending bookings by same renter
-		if next == store.BookingStatusConfirmed {
-			cancelled, err := q.CancelOverlappingPendingBookings(r.Context(), store.CancelOverlappingPendingBookingsParams{
-				RenterID:  booking.RenterID,
-				ID:        id,
-				StartTime: booking.StartTime,
-				EndTime:   booking.EndTime,
-			})
-			if err != nil {
-				return err
-			}
+		// Supersede previous notifications for this booking before creating new one
+		if err := q.SupersedeNotificationsByBooking(r.Context(), updated.ID); err != nil {
+			log.Printf("supersede notifications for booking %s: %v", updated.ID, err)
+		}
 
-			// Notify renter of confirmation
+		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
+
+		// Owner accepts → notify renter to complete payment
+		if next == store.BookingStatusPaymentPending {
 			payload, _ := json.Marshal(map[string]string{
 				"booking_id": updated.ID.String(),
+				"space_name": sp.Name,
 			})
 			_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
 				ProfileID: booking.RenterID,
-				Type:      "booking_confirmed",
+				Type:      "payment_required",
 				Payload:   payload,
+				BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
 			})
-
-			// Notify renter of each auto-cancelled backup booking
-			for _, cb := range cancelled {
-				cp, _ := json.Marshal(map[string]string{
-					"booking_id": cb.ID.String(),
-				})
-				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
-					ProfileID: booking.RenterID,
-					Type:      "backup_booking_cancelled",
-					Payload:   cp,
-				})
-			}
 		}
 
 		// On cancellation: notify the other party
 		if next == store.BookingStatusCancelled {
 			payload, _ := json.Marshal(map[string]string{
 				"booking_id": updated.ID.String(),
+				"space_name": sp.Name,
 			})
 			if claims.Role == "renter" {
 				// renter cancels → notify owner
-				sp, err := q.GetSpaceByID(r.Context(), booking.SpaceID)
-				if err == nil {
-					_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
-						ProfileID: sp.OwnerID,
-						Type:      "booking_cancelled_by_renter",
-						Payload:   payload,
-					})
-				}
+				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+					ProfileID: sp.OwnerID,
+					Type:      "booking_cancelled_by_renter",
+					Payload:   payload,
+					BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+				})
 			} else {
 				// owner declines/cancels → notify renter
 				_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
 					ProfileID: booking.RenterID,
 					Type:      "booking_cancelled_by_owner",
 					Payload:   payload,
+					BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
 				})
 			}
 		}
@@ -534,7 +538,7 @@ func (h *BookingsHandler) ListMine(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusForbidden, "only renter profiles can list their bookings")
 		return
 	}
-	bookings, err := h.q.ListBookingsByRenter(r.Context(), claims.ProfileID)
+	bookings, err := h.q.ListBookingsByRenterEnriched(r.Context(), claims.ProfileID)
 	if err != nil {
 		ServerError(w, r, err)
 		return
@@ -548,7 +552,7 @@ func (h *BookingsHandler) ListMineOwner(w http.ResponseWriter, r *http.Request) 
 		Error(w, http.StatusForbidden, "only owner profiles can list their space bookings")
 		return
 	}
-	bookings, err := h.q.ListBookingsByOwner(r.Context(), claims.ProfileID)
+	bookings, err := h.q.ListBookingsByOwnerEnriched(r.Context(), claims.ProfileID)
 	if err != nil {
 		ServerError(w, r, err)
 		return
@@ -557,9 +561,14 @@ func (h *BookingsHandler) ListMineOwner(w http.ResponseWriter, r *http.Request) 
 }
 
 // isValidTransition returns true if the status transition is allowed by the state machine.
+// pending → payment_pending (owner accepts) | cancelled
+// payment_pending → confirmed (admin approves) | cancelled
+// confirmed → cancelled | completed (auto)
 func isValidTransition(from, to store.BookingStatus) bool {
 	switch from {
 	case store.BookingStatusPending:
+		return to == store.BookingStatusPaymentPending || to == store.BookingStatusCancelled
+	case store.BookingStatusPaymentPending:
 		return to == store.BookingStatusConfirmed || to == store.BookingStatusCancelled
 	case store.BookingStatusConfirmed:
 		return to == store.BookingStatusCancelled

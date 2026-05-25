@@ -19,6 +19,7 @@ type Claims struct {
 	UserID    uuid.UUID `json:"user_id"`
 	ProfileID uuid.UUID `json:"profile_id"`
 	Role      string    `json:"role"`
+	IsAdmin   bool      `json:"is_admin"`
 	jwt.RegisteredClaims
 }
 
@@ -80,6 +81,18 @@ func ClaimsFromCtx(ctx context.Context) *Claims {
 // ContextWithClaims injects claims into a context — used in tests to simulate authenticated requests.
 func ContextWithClaims(ctx context.Context, c *Claims) context.Context {
 	return context.WithValue(ctx, claimsKey, c)
+}
+
+// RequireAdmin rejects non-admin requests. Must run after RequireAuth.
+func RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims := ClaimsFromCtx(r.Context())
+		if claims == nil || !claims.IsAdmin {
+			writeError(w, http.StatusForbidden, "admin access required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

@@ -46,7 +46,10 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	ListActiveBookingsInRange(ctx context.Context, arg ListActiveBookingsInRangeParams) ([]Booking, error)
 	ListBookingsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Booking, error)
+	ListBookingsByOwnerEnriched(ctx context.Context, ownerID uuid.UUID) ([]ListBookingsByOwnerEnrichedRow, error)
+	ListPaymentPendingBookings(ctx context.Context) ([]ListPaymentPendingBookingsRow, error)
 	ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) ([]Booking, error)
+	ListBookingsByRenterEnriched(ctx context.Context, renterID uuid.UUID) ([]ListBookingsByRenterEnrichedRow, error)
 	ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([]Booking, error)
 	ListBookingsBySpacePaginated(ctx context.Context, arg ListBookingsBySpacePaginatedParams) ([]Booking, error)
 	ListNotificationsByProfile(ctx context.Context, arg ListNotificationsByProfileParams) ([]Notification, error)
@@ -62,7 +65,9 @@ type Querier interface {
 	MarkAllNotificationsRead(ctx context.Context, profileID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
 	SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) (Space, error)
+	SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error
 	SetSystemConfig(ctx context.Context, arg SetSystemConfigParams) error
+	SetUserAdmin(ctx context.Context, arg SetUserAdminParams) (User, error)
 	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
 	UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space, error)
 	UpsertSpaceAvailability(ctx context.Context, arg UpsertSpaceAvailabilityParams) (SpaceAvailability, error)

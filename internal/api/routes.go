@@ -36,6 +36,10 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 		// POST /auth/login — verify credentials, returns JWT + all profiles
 		r.Post("/auth/login", authHandler.Login)
 
+		// GET /config/payment — public payment config (promptpay details)
+		configHandler := handler.NewConfigHandler(q)
+		r.Get("/config/payment", configHandler.PaymentConfig)
+
 		// all routes below require a valid JWT in Authorization: Bearer <token>
 		spacesHandler := handler.NewSpacesHandler(q)
 		// Public reads — OptionalAuth so authenticated users get personalised results (own spaces excluded).
@@ -91,6 +95,18 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Post("/notifications/{id}/read", notificationsHandler.MarkRead)
 			// POST  /notifications/read-all — mark all notifications read
 			r.Post("/notifications/read-all", notificationsHandler.MarkAllRead)
+
+			// Admin routes — require is_admin flag in JWT
+			r.Group(func(r chi.Router) {
+				r.Use(appMiddleware.RequireAdmin)
+				adminHandler := handler.NewAdminHandler(q)
+				// GET  /admin/bookings          — list all payment_pending bookings
+				r.Get("/admin/bookings", adminHandler.ListPaymentPending)
+				// POST /admin/bookings/{id}/approve — confirm payment → booking confirmed
+				r.Post("/admin/bookings/{id}/approve", adminHandler.Approve)
+				// POST /admin/bookings/{id}/reject  — reject payment → booking cancelled
+				r.Post("/admin/bookings/{id}/reject", adminHandler.Reject)
+			})
 		})
 	})
 

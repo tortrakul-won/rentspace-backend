@@ -34,7 +34,11 @@ func (h *NotificationsHandler) List(w http.ResponseWriter, r *http.Request) {
 		ServerError(w, r, err)
 		return
 	}
-	JSON(w, http.StatusOK, nonNil(notifications))
+	resp := make([]NotificationResponse, len(notifications))
+	for i, n := range notifications {
+		resp[i] = notificationToResponse(n)
+	}
+	JSON(w, http.StatusOK, resp)
 }
 
 func (h *NotificationsHandler) UnreadCount(w http.ResponseWriter, r *http.Request) {

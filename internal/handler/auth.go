@@ -86,7 +86,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.signToken(user.ID, profile.ID, string(profile.Role))
+	token, err := h.signToken(user.ID, profile.ID, string(profile.Role), user.IsAdmin)
 	if err != nil {
 		ServerError(w, r, err)
 		return
@@ -126,7 +126,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	active := profiles[0]
-	token, err := h.signToken(user.ID, active.ID, string(active.Role))
+	token, err := h.signToken(user.ID, active.ID, string(active.Role), user.IsAdmin)
 	if err != nil {
 		ServerError(w, r, err)
 		return
@@ -172,7 +172,7 @@ func (h *AuthHandler) SwitchProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.signToken(claims.UserID, profile.ID, string(profile.Role))
+	token, err := h.signToken(claims.UserID, profile.ID, string(profile.Role), claims.IsAdmin)
 	if err != nil {
 		ServerError(w, r, err)
 		return
@@ -245,11 +245,12 @@ func (h *AuthHandler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // signToken builds a JWT with user_id, profile_id, role and a 24h expiry, signed with HS256.
-func (h *AuthHandler) signToken(userID, profileID uuid.UUID, role string) (string, error) {
+func (h *AuthHandler) signToken(userID, profileID uuid.UUID, role string, isAdmin bool) (string, error) {
 	claims := middleware.Claims{
 		UserID:    userID,
 		ProfileID: profileID,
 		Role:      role,
+		IsAdmin:   isAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -265,6 +266,7 @@ func toUserResponse(u store.User) UserResponse {
 		Email:     u.Email,
 		FullName:  u.FullName,
 		Phone:     u.Phone.String,
+		IsAdmin:   u.IsAdmin,
 		CreatedAt: u.CreatedAt.Format(time.RFC3339),
 	}
 }
