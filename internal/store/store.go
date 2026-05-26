@@ -22,6 +22,8 @@ type Store interface {
 	GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (AdminBookingDetailRow, error)
 	// ListAdminProfileIDs returns all profile IDs belonging to admin users.
 	ListAdminProfileIDs(ctx context.Context) ([]uuid.UUID, error)
+	// GetOwnerBookingDetail returns a booking enriched with renter info, scoped to the owner's spaces.
+	GetOwnerBookingDetail(ctx context.Context, id uuid.UUID, ownerProfileID uuid.UUID) (OwnerBookingDetailRow, error)
 }
 
 // SQLStore is the production implementation backed by *sql.DB.
@@ -145,6 +147,68 @@ func (s *SQLStore) ListAdminProfileIDs(ctx context.Context) ([]uuid.UUID, error)
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// OwnerBookingDetailRow is an enriched booking row for the owner detail page.
+type OwnerBookingDetailRow struct {
+	ID                uuid.UUID      `json:"id"`
+	SpaceID           uuid.UUID      `json:"space_id"`
+	RenterID          uuid.UUID      `json:"renter_id"`
+	StartTime         time.Time      `json:"start_time"`
+	EndTime           time.Time      `json:"end_time"`
+	TotalPrice        int32          `json:"total_price"`
+	PlatformFee       int32          `json:"platform_fee"`
+	Status            BookingStatus  `json:"status"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
+	CancelReason      sql.NullString `json:"cancel_reason"`
+	RefCode           string         `json:"ref_code"`
+	SpaceName         string         `json:"space_name"`
+	SpaceLocation     string         `json:"space_location"`
+	SpaceImages       []string       `json:"space_images"`
+	RenterDisplayName string         `json:"renter_display_name"`
+	RenterFullName    string         `json:"renter_full_name"`
+	RenterPhone       sql.NullString `json:"renter_phone"`
+}
+
+const getOwnerBookingDetail = `
+SELECT
+  b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee,
+  b.status, b.created_at, b.updated_at, b.cancel_reason, b.ref_code,
+  s.name AS space_name, s.location AS space_location, s.images AS space_images,
+  rp.display_name AS renter_display_name,
+  ru.full_name AS renter_full_name,
+  ru.phone AS renter_phone
+FROM bookings b
+JOIN spaces s ON s.id = b.space_id
+JOIN profiles rp ON rp.id = b.renter_id
+JOIN users ru ON ru.id = rp.user_id
+WHERE b.id = $1 AND s.owner_id = $2
+`
+
+func (s *SQLStore) GetOwnerBookingDetail(ctx context.Context, id uuid.UUID, ownerProfileID uuid.UUID) (OwnerBookingDetailRow, error) {
+	var r OwnerBookingDetailRow
+	err := s.db.QueryRowContext(ctx, getOwnerBookingDetail, id, ownerProfileID).Scan(
+		&r.ID,
+		&r.SpaceID,
+		&r.RenterID,
+		&r.StartTime,
+		&r.EndTime,
+		&r.TotalPrice,
+		&r.PlatformFee,
+		&r.Status,
+		&r.CreatedAt,
+		&r.UpdatedAt,
+		&r.CancelReason,
+		&r.RefCode,
+		&r.SpaceName,
+		&r.SpaceLocation,
+		pq.Array(&r.SpaceImages),
+		&r.RenterDisplayName,
+		&r.RenterFullName,
+		&r.RenterPhone,
+	)
+	return r, err
 }
 
 func (s *SQLStore) GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (AdminBookingDetailRow, error) {

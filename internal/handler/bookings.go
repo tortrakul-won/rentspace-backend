@@ -500,3 +500,24 @@ func (h *BookingsHandler) ListMineOwner(w http.ResponseWriter, r *http.Request) 
 	JSON(w, http.StatusOK, nonNil(bookings))
 }
 
+// GetOwnerBookingDetail returns a booking enriched with renter info for the owner detail page.
+// Returns 404 if the booking does not belong to a space owned by the requesting profile.
+func (h *BookingsHandler) GetOwnerBookingDetail(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+	if claims.Role != "owner" {
+		Error(w, http.StatusForbidden, "only owner profiles can view booking details")
+		return
+	}
+	id, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	row, err := h.q.GetOwnerBookingDetail(r.Context(), id, claims.ProfileID)
+	if err != nil {
+		Error(w, http.StatusNotFound, "booking not found")
+		return
+	}
+	JSON(w, http.StatusOK, ownerBookingDetailToResponse(row))
+}
+
