@@ -100,17 +100,20 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
-		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
+		bookingRef := uuid.NullUUID{UUID: updated.ID, Valid: true}
+		// Supersede once, then notify both renter and owner without re-superseding.
+		_ = q.SupersedeNotificationsByBooking(r.Context(), bookingRef)
+		pushNotificationRaw(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
 			Type:      "booking_confirmed",
 			Payload:   payload,
-			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+			BookingID: bookingRef,
 		})
-		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
+		pushNotificationRaw(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: sp.OwnerID,
 			Type:      "booking_confirmed_owner",
 			Payload:   payload,
-			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+			BookingID: bookingRef,
 		})
 
 		// Notify renter of each auto-cancelled backup booking
