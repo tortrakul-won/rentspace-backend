@@ -85,6 +85,8 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Get("/bookings/mine", bookingsHandler.ListMine)
 			// GET   /bookings/owner       — list all bookings across owner's spaces
 			r.Get("/bookings/owner", bookingsHandler.ListMineOwner)
+			// GET   /bookings/owner/{id}  — enriched booking detail for owner review page
+			r.Get("/bookings/owner/{id}", bookingsHandler.GetOwnerBookingDetail)
 			// GET   /bookings/{id}        — get a single booking by ID
 			r.Get("/bookings/{id}", bookingsHandler.Get)
 			// PATCH /bookings/{id}/status — update booking status (pending → confirmed / cancelled)
@@ -110,6 +112,8 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 				adminHandler := handler.NewAdminHandler(q, h)
 				// GET  /admin/bookings          — list all payment_pending bookings
 				r.Get("/admin/bookings", adminHandler.ListPaymentPending)
+				// GET  /admin/bookings/{id}     — full booking detail for admin review page
+				r.Get("/admin/bookings/{id}", adminHandler.GetBookingDetail)
 				// POST /admin/bookings/{id}/approve         — confirm payment → booking confirmed
 				r.Post("/admin/bookings/{id}/approve", adminHandler.Approve)
 				// POST /admin/bookings/{id}/reject-retry    — reject slip, renter retries → awaiting_payment

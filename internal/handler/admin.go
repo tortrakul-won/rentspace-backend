@@ -32,6 +32,21 @@ func (h *AdminHandler) ListPaymentPending(w http.ResponseWriter, r *http.Request
 	JSON(w, http.StatusOK, nonNil(bookings))
 }
 
+// GetBookingDetail returns a fully-enriched booking for the admin review page.
+func (h *AdminHandler) GetBookingDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	row, err := h.q.GetAdminBookingDetail(r.Context(), id)
+	if err != nil {
+		Error(w, http.StatusNotFound, "booking not found")
+		return
+	}
+	JSON(w, http.StatusOK, adminBookingDetailToResponse(row))
+}
+
 // Approve confirms a payment_review booking → confirmed.
 // Also cancels any other overlapping bookings from the same renter and sends notifications.
 func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
@@ -85,11 +100,20 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
-		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
+		bookingRef := uuid.NullUUID{UUID: updated.ID, Valid: true}
+		// Supersede once, then notify both renter and owner without re-superseding.
+		_ = q.SupersedeNotificationsByBooking(r.Context(), bookingRef)
+		pushNotificationRaw(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
 			Type:      "booking_confirmed",
 			Payload:   payload,
-			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+			BookingID: bookingRef,
+		})
+		pushNotificationRaw(r.Context(), q, h.hub, store.CreateNotificationParams{
+			ProfileID: sp.OwnerID,
+			Type:      "booking_confirmed_owner",
+			Payload:   payload,
+			BookingID: bookingRef,
 		})
 
 		// Notify renter of each auto-cancelled backup booking
@@ -147,7 +171,7 @@ func (h *AdminHandler) RejectRetry(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
 		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
-			Type:      "payment_rejected",
+			Type:      "payment_rejected_retry",
 			Payload:   payload,
 			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
 		})

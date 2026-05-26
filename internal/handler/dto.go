@@ -187,6 +187,7 @@ type CreateBookingRequest struct {
 
 type BookingResponse struct {
 	ID               string  `json:"id"`
+	RefCode          string  `json:"ref_code"`
 	SpaceID          string  `json:"space_id"`
 	RenterID         string  `json:"renter_id"`
 	StartTime        string  `json:"start_time"`
@@ -199,6 +200,121 @@ type BookingResponse struct {
 	RefundStatus     *string `json:"refund_status"`
 	ProcessExpiresAt *string `json:"process_expires_at"`
 	SlipUrl          *string `json:"slip_url"`
+}
+
+type AdminBookingDetailResponse struct {
+	ID                string   `json:"id"`
+	RefCode           string   `json:"ref_code"`
+	SpaceID           string   `json:"space_id"`
+	RenterID          string   `json:"renter_id"`
+	StartTime         string   `json:"start_time"`
+	EndTime           string   `json:"end_time"`
+	TotalPrice        int32    `json:"total_price"`
+	PlatformFee       int32    `json:"platform_fee"`
+	Status            string   `json:"status"`
+	CancelReason      *string  `json:"cancel_reason"`
+	RefundStatus      *string  `json:"refund_status"`
+	ProcessExpiresAt  *string  `json:"process_expires_at"`
+	SlipUrl           *string  `json:"slip_url"`
+	CreatedAt         string   `json:"created_at"`
+	UpdatedAt         string   `json:"updated_at"`
+	SpaceName         string   `json:"space_name"`
+	SpaceLocation     string   `json:"space_location"`
+	SpaceImages       []string `json:"space_images"`
+	RenterDisplayName string   `json:"renter_display_name"`
+	RenterFullName    string   `json:"renter_full_name"`
+	RenterPhone       *string  `json:"renter_phone"`
+	OwnerDisplayName  string   `json:"owner_display_name"`
+	OwnerFullName     string   `json:"owner_full_name"`
+}
+
+func adminBookingDetailToResponse(r store.AdminBookingDetailRow) AdminBookingDetailResponse {
+	resp := AdminBookingDetailResponse{
+		ID:                r.ID.String(),
+		RefCode:           r.RefCode,
+		SpaceID:           r.SpaceID.String(),
+		RenterID:          r.RenterID.String(),
+		StartTime:         r.StartTime.Format(time.RFC3339),
+		EndTime:           r.EndTime.Format(time.RFC3339),
+		TotalPrice:        r.TotalPrice,
+		PlatformFee:       r.PlatformFee,
+		Status:            string(r.Status),
+		CreatedAt:         r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:         r.UpdatedAt.Format(time.RFC3339),
+		SpaceName:         r.SpaceName,
+		SpaceLocation:     r.SpaceLocation,
+		SpaceImages:       r.SpaceImages,
+		RenterDisplayName: r.RenterDisplayName,
+		RenterFullName:    r.RenterFullName,
+		OwnerDisplayName:  r.OwnerDisplayName,
+		OwnerFullName:     r.OwnerFullName,
+	}
+	if r.CancelReason.Valid {
+		resp.CancelReason = &r.CancelReason.String
+	}
+	if r.RefundStatus.Valid {
+		resp.RefundStatus = &r.RefundStatus.String
+	}
+	if r.ProcessExpiresAt.Valid {
+		s := r.ProcessExpiresAt.Time.Format(time.RFC3339)
+		resp.ProcessExpiresAt = &s
+	}
+	if r.SlipUrl.Valid {
+		resp.SlipUrl = &r.SlipUrl.String
+	}
+	if r.RenterPhone.Valid {
+		resp.RenterPhone = &r.RenterPhone.String
+	}
+	return resp
+}
+
+// --- Owner Booking Detail ---
+
+type OwnerBookingDetailResponse struct {
+	ID                string   `json:"id"`
+	RefCode           string   `json:"ref_code"`
+	SpaceID           string   `json:"space_id"`
+	RenterID          string   `json:"renter_id"`
+	StartTime         string   `json:"start_time"`
+	EndTime           string   `json:"end_time"`
+	TotalPrice        int32    `json:"total_price"`
+	PlatformFee       int32    `json:"platform_fee"`
+	Status            string   `json:"status"`
+	CancelReason      *string  `json:"cancel_reason"`
+	CreatedAt         string   `json:"created_at"`
+	SpaceName         string   `json:"space_name"`
+	SpaceLocation     string   `json:"space_location"`
+	SpaceImages       []string `json:"space_images"`
+	RenterDisplayName string   `json:"renter_display_name"`
+	RenterFullName    string   `json:"renter_full_name"`
+	RenterPhone       *string  `json:"renter_phone"`
+}
+
+func ownerBookingDetailToResponse(r store.OwnerBookingDetailRow) OwnerBookingDetailResponse {
+	resp := OwnerBookingDetailResponse{
+		ID:                r.ID.String(),
+		RefCode:           r.RefCode,
+		SpaceID:           r.SpaceID.String(),
+		RenterID:          r.RenterID.String(),
+		StartTime:         r.StartTime.Format(time.RFC3339),
+		EndTime:           r.EndTime.Format(time.RFC3339),
+		TotalPrice:        r.TotalPrice,
+		PlatformFee:       r.PlatformFee,
+		Status:            string(r.Status),
+		CreatedAt:         r.CreatedAt.Format(time.RFC3339),
+		SpaceName:         r.SpaceName,
+		SpaceLocation:     r.SpaceLocation,
+		SpaceImages:       r.SpaceImages,
+		RenterDisplayName: r.RenterDisplayName,
+		RenterFullName:    r.RenterFullName,
+	}
+	if r.CancelReason.Valid {
+		resp.CancelReason = &r.CancelReason.String
+	}
+	if r.RenterPhone.Valid {
+		resp.RenterPhone = &r.RenterPhone.String
+	}
+	return resp
 }
 
 // --- Shared ---
