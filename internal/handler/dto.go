@@ -268,6 +268,55 @@ func adminBookingDetailToResponse(r store.AdminBookingDetailRow) AdminBookingDet
 	return resp
 }
 
+// --- Owner Booking Detail ---
+
+type OwnerBookingDetailResponse struct {
+	ID                string   `json:"id"`
+	RefCode           string   `json:"ref_code"`
+	SpaceID           string   `json:"space_id"`
+	RenterID          string   `json:"renter_id"`
+	StartTime         string   `json:"start_time"`
+	EndTime           string   `json:"end_time"`
+	TotalPrice        int32    `json:"total_price"`
+	PlatformFee       int32    `json:"platform_fee"`
+	Status            string   `json:"status"`
+	CancelReason      *string  `json:"cancel_reason"`
+	CreatedAt         string   `json:"created_at"`
+	SpaceName         string   `json:"space_name"`
+	SpaceLocation     string   `json:"space_location"`
+	SpaceImages       []string `json:"space_images"`
+	RenterDisplayName string   `json:"renter_display_name"`
+	RenterFullName    string   `json:"renter_full_name"`
+	RenterPhone       *string  `json:"renter_phone"`
+}
+
+func ownerBookingDetailToResponse(r store.OwnerBookingDetailRow) OwnerBookingDetailResponse {
+	resp := OwnerBookingDetailResponse{
+		ID:                r.ID.String(),
+		RefCode:           r.RefCode,
+		SpaceID:           r.SpaceID.String(),
+		RenterID:          r.RenterID.String(),
+		StartTime:         r.StartTime.Format(time.RFC3339),
+		EndTime:           r.EndTime.Format(time.RFC3339),
+		TotalPrice:        r.TotalPrice,
+		PlatformFee:       r.PlatformFee,
+		Status:            string(r.Status),
+		CreatedAt:         r.CreatedAt.Format(time.RFC3339),
+		SpaceName:         r.SpaceName,
+		SpaceLocation:     r.SpaceLocation,
+		SpaceImages:       r.SpaceImages,
+		RenterDisplayName: r.RenterDisplayName,
+		RenterFullName:    r.RenterFullName,
+	}
+	if r.CancelReason.Valid {
+		resp.CancelReason = &r.CancelReason.String
+	}
+	if r.RenterPhone.Valid {
+		resp.RenterPhone = &r.RenterPhone.String
+	}
+	return resp
+}
+
 // --- Shared ---
 
 type ErrorResponse struct {
