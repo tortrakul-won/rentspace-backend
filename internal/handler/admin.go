@@ -106,6 +106,12 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 			Payload:   payload,
 			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
 		})
+		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
+			ProfileID: sp.OwnerID,
+			Type:      "booking_confirmed_owner",
+			Payload:   payload,
+			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+		})
 
 		// Notify renter of each auto-cancelled backup booking
 		for _, cb := range cancelled {
@@ -162,7 +168,7 @@ func (h *AdminHandler) RejectRetry(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(map[string]string{"booking_id": updated.ID.String(), "space_name": sp.Name})
 		pushNotification(r.Context(), q, h.hub, store.CreateNotificationParams{
 			ProfileID: booking.RenterID,
-			Type:      "payment_rejected",
+			Type:      "payment_rejected_retry",
 			Payload:   payload,
 			BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
 		})

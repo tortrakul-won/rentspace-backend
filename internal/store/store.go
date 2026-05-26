@@ -20,6 +20,8 @@ type Store interface {
 	GetSystemConfigMultiple(ctx context.Context, keys []string) (map[string]string, error)
 	// GetAdminBookingDetail returns a fully-enriched booking row for the admin review page.
 	GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (AdminBookingDetailRow, error)
+	// ListAdminProfileIDs returns all profile IDs belonging to admin users.
+	ListAdminProfileIDs(ctx context.Context) ([]uuid.UUID, error)
 }
 
 // SQLStore is the production implementation backed by *sql.DB.
@@ -123,6 +125,27 @@ JOIN profiles owner_p ON owner_p.id = s.owner_id
 JOIN users owner_u ON owner_u.id = owner_p.user_id
 WHERE b.id = $1
 `
+
+func (s *SQLStore) ListAdminProfileIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT p.id FROM profiles p
+		JOIN users u ON u.id = p.user_id
+		WHERE u.is_admin = TRUE
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
 
 func (s *SQLStore) GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (AdminBookingDetailRow, error) {
 	var r AdminBookingDetailRow
