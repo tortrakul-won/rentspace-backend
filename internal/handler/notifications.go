@@ -126,7 +126,7 @@ func (h *NotificationsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // Errors are swallowed — notifications are best-effort and must not fail the parent transaction.
 func pushNotification(ctx context.Context, q store.Querier, h *hub.Hub, params store.CreateNotificationParams) {
 	if params.BookingID.Valid {
-		if err := q.SupersedeNotificationsByBooking(ctx, params.BookingID.UUID); err != nil {
+		if err := q.SupersedeNotificationsByBooking(ctx, params.BookingID); err != nil {
 			log.Printf("supersede notifications for booking %s: %v", params.BookingID.UUID, err)
 		}
 	}

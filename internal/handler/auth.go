@@ -286,6 +286,41 @@ func toProfileResponse(p store.Profile) ProfileResponse {
 	}
 }
 
+// UpdateUser updates editable account fields (full_name, phone) for the authenticated user.
+func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.ClaimsFromCtx(r.Context())
+
+	var body struct {
+		FullName string `json:"full_name"`
+		Phone    string `json:"phone"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if body.FullName == "" {
+		existing, err := h.q.GetUserByID(r.Context(), claims.UserID)
+		if err != nil {
+			ServerError(w, r, err)
+			return
+		}
+		body.FullName = existing.FullName
+	}
+
+	updated, err := h.q.UpdateUser(r.Context(), store.UpdateUserParams{
+		ID:       claims.UserID,
+		FullName: body.FullName,
+		Phone:    sql.NullString{String: body.Phone, Valid: body.Phone != ""},
+	})
+	if err != nil {
+		ServerError(w, r, err)
+		return
+	}
+
+	JSON(w, http.StatusOK, toUserResponse(updated))
+}
+
 // UpdateProfile updates editable fields (display_name, line_id) for the active profile.
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFromCtx(r.Context())

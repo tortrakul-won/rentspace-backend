@@ -80,7 +80,7 @@ func (q *Queries) CountSpacesExcludeUser(ctx context.Context, userID uuid.UUID) 
 const createSpace = `-- name: CreateSpace :one
 INSERT INTO spaces (owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, weekend_surcharge_pct)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct
+RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes
 `
 
 type CreateSpaceParams struct {
@@ -135,6 +135,7 @@ func (q *Queries) CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space
 		&i.MaxBookingMinutes,
 		&i.TurnaroundMinutes,
 		&i.DepositPct,
+		&i.PaymentDeadlineMinutes,
 	)
 	return i, err
 }
@@ -155,7 +156,7 @@ func (q *Queries) DeleteSpace(ctx context.Context, arg DeleteSpaceParams) error 
 }
 
 const getSpaceByID = `-- name: GetSpaceByID :one
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE id = $1
 `
 
@@ -183,12 +184,13 @@ func (q *Queries) GetSpaceByID(ctx context.Context, id uuid.UUID) (Space, error)
 		&i.MaxBookingMinutes,
 		&i.TurnaroundMinutes,
 		&i.DepositPct,
+		&i.PaymentDeadlineMinutes,
 	)
 	return i, err
 }
 
 const listSpaces = `-- name: ListSpaces :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE is_active = TRUE
 ORDER BY created_at DESC
 `
@@ -223,6 +225,7 @@ func (q *Queries) ListSpaces(ctx context.Context) ([]Space, error) {
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -238,7 +241,7 @@ func (q *Queries) ListSpaces(ctx context.Context) ([]Space, error) {
 }
 
 const listSpacesByCategory = `-- name: ListSpacesByCategory :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE is_active = TRUE AND category = $1
 ORDER BY created_at DESC
 `
@@ -273,6 +276,7 @@ func (q *Queries) ListSpacesByCategory(ctx context.Context, category SpaceCatego
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -288,7 +292,7 @@ func (q *Queries) ListSpacesByCategory(ctx context.Context, category SpaceCatego
 }
 
 const listSpacesByCategoryPaginated = `-- name: ListSpacesByCategoryPaginated :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE is_active = TRUE AND category = $1
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $2
@@ -330,6 +334,7 @@ func (q *Queries) ListSpacesByCategoryPaginated(ctx context.Context, arg ListSpa
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -345,7 +350,7 @@ func (q *Queries) ListSpacesByCategoryPaginated(ctx context.Context, arg ListSpa
 }
 
 const listSpacesByCategoryPaginatedExcludeUser = `-- name: ListSpacesByCategoryPaginatedExcludeUser :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE is_active = TRUE
   AND category = $1
   AND owner_id NOT IN (SELECT id FROM profiles WHERE user_id = $2)
@@ -395,6 +400,7 @@ func (q *Queries) ListSpacesByCategoryPaginatedExcludeUser(ctx context.Context, 
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -410,7 +416,7 @@ func (q *Queries) ListSpacesByCategoryPaginatedExcludeUser(ctx context.Context, 
 }
 
 const listSpacesByOwner = `-- name: ListSpacesByOwner :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE owner_id = $1
 ORDER BY created_at DESC
 `
@@ -445,6 +451,7 @@ func (q *Queries) ListSpacesByOwner(ctx context.Context, ownerID uuid.UUID) ([]S
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -460,7 +467,7 @@ func (q *Queries) ListSpacesByOwner(ctx context.Context, ownerID uuid.UUID) ([]S
 }
 
 const listSpacesByOwnerPaginated = `-- name: ListSpacesByOwnerPaginated :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -502,6 +509,7 @@ func (q *Queries) ListSpacesByOwnerPaginated(ctx context.Context, arg ListSpaces
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -517,7 +525,7 @@ func (q *Queries) ListSpacesByOwnerPaginated(ctx context.Context, arg ListSpaces
 }
 
 const listSpacesPaginated = `-- name: ListSpacesPaginated :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE is_active = TRUE
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -558,6 +566,7 @@ func (q *Queries) ListSpacesPaginated(ctx context.Context, arg ListSpacesPaginat
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -573,7 +582,7 @@ func (q *Queries) ListSpacesPaginated(ctx context.Context, arg ListSpacesPaginat
 }
 
 const listSpacesPaginatedExcludeUser = `-- name: ListSpacesPaginatedExcludeUser :many
-SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct FROM spaces
+SELECT id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes FROM spaces
 WHERE is_active = TRUE
   AND owner_id NOT IN (SELECT id FROM profiles WHERE user_id = $1)
 ORDER BY created_at DESC
@@ -616,6 +625,7 @@ func (q *Queries) ListSpacesPaginatedExcludeUser(ctx context.Context, arg ListSp
 			&i.MaxBookingMinutes,
 			&i.TurnaroundMinutes,
 			&i.DepositPct,
+			&i.PaymentDeadlineMinutes,
 		); err != nil {
 			return nil, err
 		}
@@ -633,7 +643,7 @@ func (q *Queries) ListSpacesPaginatedExcludeUser(ctx context.Context, arg ListSp
 const setSpaceActive = `-- name: SetSpaceActive :one
 UPDATE spaces SET is_active = $2, updated_at = NOW()
 WHERE id = $1 AND owner_id = $3
-RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct
+RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes
 `
 
 type SetSpaceActiveParams struct {
@@ -666,6 +676,7 @@ func (q *Queries) SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) 
 		&i.MaxBookingMinutes,
 		&i.TurnaroundMinutes,
 		&i.DepositPct,
+		&i.PaymentDeadlineMinutes,
 	)
 	return i, err
 }
@@ -685,7 +696,7 @@ UPDATE spaces SET
   weekend_surcharge_pct = $12,
   updated_at            = NOW()
 WHERE id = $1 AND owner_id = $13
-RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct
+RETURNING id, owner_id, name, description, location, category, images, hourly_rate, daily_rate, min_minutes, capacity, amenities, is_active, created_at, updated_at, weekend_surcharge_pct, min_notice_hours, max_booking_minutes, turnaround_minutes, deposit_pct, payment_deadline_minutes
 `
 
 type UpdateSpaceParams struct {
@@ -742,6 +753,7 @@ func (q *Queries) UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space
 		&i.MaxBookingMinutes,
 		&i.TurnaroundMinutes,
 		&i.DepositPct,
+		&i.PaymentDeadlineMinutes,
 	)
 	return i, err
 }
