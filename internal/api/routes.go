@@ -110,6 +110,8 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 				adminHandler := handler.NewAdminHandler(q, h)
 				// GET  /admin/bookings          — list all payment_pending bookings
 				r.Get("/admin/bookings", adminHandler.ListPaymentPending)
+				// GET  /admin/bookings/{id}     — full booking detail for admin review page
+				r.Get("/admin/bookings/{id}", adminHandler.GetBookingDetail)
 				// POST /admin/bookings/{id}/approve         — confirm payment → booking confirmed
 				r.Post("/admin/bookings/{id}/approve", adminHandler.Approve)
 				// POST /admin/bookings/{id}/reject-retry    — reject slip, renter retries → awaiting_payment

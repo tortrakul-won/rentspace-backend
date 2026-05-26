@@ -32,6 +32,21 @@ func (h *AdminHandler) ListPaymentPending(w http.ResponseWriter, r *http.Request
 	JSON(w, http.StatusOK, nonNil(bookings))
 }
 
+// GetBookingDetail returns a fully-enriched booking for the admin review page.
+func (h *AdminHandler) GetBookingDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := parseUUID(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	row, err := h.q.GetAdminBookingDetail(r.Context(), id)
+	if err != nil {
+		Error(w, http.StatusNotFound, "booking not found")
+		return
+	}
+	JSON(w, http.StatusOK, adminBookingDetailToResponse(row))
+}
+
 // Approve confirms a payment_review booking → confirmed.
 // Also cancels any other overlapping bookings from the same renter and sends notifications.
 func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {

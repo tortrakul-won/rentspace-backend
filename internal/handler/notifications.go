@@ -103,6 +103,14 @@ func (h *NotificationsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	ch, unsub := h.hub.Subscribe(claims.ProfileID)
 	defer unsub()
 
+	// Admin users also receive broadcasts on the admin channel (nil channel blocks safely for non-admins).
+	var adminCh chan []byte
+	if claims.IsAdmin {
+		var unsubAdmin func()
+		adminCh, unsubAdmin = h.hub.SubscribeAdmin(claims.UserID)
+		defer unsubAdmin()
+	}
+
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -111,6 +119,9 @@ func (h *NotificationsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case data := <-ch:
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		case data := <-adminCh:
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		case <-ticker.C:

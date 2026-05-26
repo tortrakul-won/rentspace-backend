@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -18,6 +20,17 @@ import (
 )
 
 var errTimeSlotTaken = errors.New("time slot taken")
+
+const refCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I to avoid confusion
+
+func generateRefCode() string {
+	b := make([]byte, 8)
+	for i := range b {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(refCodeChars))))
+		b[i] = refCodeChars[n.Int64()]
+	}
+	return string(b)
+}
 
 type BookingsHandler struct {
 	q   store.Store
@@ -174,6 +187,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			Headcount:   sqlHeadcount,
 			Notes:       sqlNotes,
 			ExpiresAt:   sql.NullTime{Time: proposal.ExpiresAt, Valid: true},
+			RefCode:     generateRefCode(),
 		})
 		if err != nil {
 			return err
@@ -417,6 +431,19 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 					BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
 				})
 			}
+		}
+
+		// Renter submits slip → notify all admins
+		if next == store.BookingStatusPaymentReview {
+			payload, _ := json.Marshal(map[string]string{
+				"booking_id": updated.ID.String(),
+				"ref_code":   updated.RefCode,
+				"space_name": sp.Name,
+			})
+			h.hub.PublishToAdmins(hub.Event{
+				Type:    "payment_review",
+				Payload: json.RawMessage(payload),
+			})
 		}
 
 		return nil

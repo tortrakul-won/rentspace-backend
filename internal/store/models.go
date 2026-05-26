@@ -168,6 +168,7 @@ type Booking struct {
 	RefundStatus     sql.NullString `json:"refund_status"`
 	ProcessExpiresAt sql.NullTime   `json:"process_expires_at"`
 	SlipUrl          sql.NullString `json:"slip_url"`
+	RefCode          string         `json:"ref_code"`
 }
 
 type Notification struct {

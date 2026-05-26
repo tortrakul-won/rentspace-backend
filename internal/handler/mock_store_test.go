@@ -81,6 +81,7 @@ type mockStore struct {
 	markNotificationRead                  func(ctx context.Context, arg store.MarkNotificationReadParams) error
 	markAllNotificationsRead              func(ctx context.Context, profileID uuid.UUID) error
 	listPaymentPendingBookings            func(ctx context.Context) ([]store.ListPaymentPendingBookingsRow, error)
+	getAdminBookingDetail                 func(ctx context.Context, id uuid.UUID) (store.AdminBookingDetailRow, error)
 	setUserAdmin                          func(ctx context.Context, arg store.SetUserAdminParams) (store.User, error)
 	supersedeNotificationsByBooking       func(ctx context.Context, bookingID uuid.UUID) error
 }
@@ -454,6 +455,13 @@ func (m *mockStore) SetUserAdmin(ctx context.Context, arg store.SetUserAdminPara
 		return m.setUserAdmin(ctx, arg)
 	}
 	return store.User{}, errors.New("not implemented")
+}
+
+func (m *mockStore) GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (store.AdminBookingDetailRow, error) {
+	if m.getAdminBookingDetail != nil {
+		return m.getAdminBookingDetail(ctx, id)
+	}
+	return store.AdminBookingDetailRow{}, errors.New("not implemented")
 }
 
 func (m *mockStore) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error {
