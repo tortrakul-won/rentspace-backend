@@ -433,7 +433,7 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Renter submits slip → notify all admins
+		// Renter submits slip → notify all admins (SSE + DB record)
 		if next == store.BookingStatusPaymentReview {
 			payload, _ := json.Marshal(map[string]string{
 				"booking_id": updated.ID.String(),
@@ -444,6 +444,19 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				Type:    "payment_review",
 				Payload: json.RawMessage(payload),
 			})
+			// Write DB notification for each admin profile so the bell panel has items.
+			// Supersede any previous notification for this booking first.
+			_ = q.SupersedeNotificationsByBooking(r.Context(), uuid.NullUUID{UUID: updated.ID, Valid: true})
+			if adminProfileIDs, err := h.q.ListAdminProfileIDs(r.Context()); err == nil {
+				for _, pid := range adminProfileIDs {
+					_, _ = q.CreateNotification(r.Context(), store.CreateNotificationParams{
+						ProfileID: pid,
+						Type:      "payment_review",
+						Payload:   payload,
+						BookingID: uuid.NullUUID{UUID: updated.ID, Valid: true},
+					})
+				}
+			}
 		}
 
 		return nil
