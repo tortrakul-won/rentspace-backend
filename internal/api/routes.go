@@ -58,6 +58,8 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Post("/auth/switch-profile", authHandler.SwitchProfile)
 			// POST  /auth/profiles       — add a second profile (owner or renter) to the account
 			r.Post("/auth/profiles", authHandler.AddProfile)
+			// PATCH /auth/me      — update full_name and/or phone for the authenticated user
+			r.Patch("/auth/me", authHandler.UpdateUser)
 			// PATCH /auth/profile — update display_name and/or line_id for the active profile
 			r.Patch("/auth/profile", authHandler.UpdateProfile)
 
