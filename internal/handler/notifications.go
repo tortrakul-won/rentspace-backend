@@ -131,9 +131,8 @@ func (h *NotificationsHandler) Stream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// pushNotification writes a notification to the DB and publishes it to any active SSE connection.
-// When params.BookingID is valid, previous notifications for that booking are superseded first —
-// callers must not call SupersedeNotificationsByBooking separately.
+// pushNotification supersedes prior notifications for the same booking, writes to DB, and publishes via SSE.
+// Use pushNotificationRaw when supersede already happened (e.g. notifying multiple recipients for one booking).
 // Errors are swallowed — notifications are best-effort and must not fail the parent transaction.
 func pushNotification(ctx context.Context, q store.Querier, h *hub.Hub, params store.CreateNotificationParams) {
 	if params.BookingID.Valid {
@@ -141,6 +140,11 @@ func pushNotification(ctx context.Context, q store.Querier, h *hub.Hub, params s
 			log.Printf("supersede notifications for booking %s: %v", params.BookingID.UUID, err)
 		}
 	}
+	pushNotificationRaw(ctx, q, h, params)
+}
+
+// pushNotificationRaw writes to DB and publishes via SSE without superseding prior notifications.
+func pushNotificationRaw(ctx context.Context, q store.Querier, h *hub.Hub, params store.CreateNotificationParams) {
 	n, err := q.CreateNotification(ctx, params)
 	if err == nil && h != nil {
 		h.Publish(params.ProfileID, hub.Event{
