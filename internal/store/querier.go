@@ -38,7 +38,6 @@ type Querier interface {
 	GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error)
 	GetProfileByUserAndRole(ctx context.Context, arg GetProfileByUserAndRoleParams) (Profile, error)
 	GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]Profile, error)
-	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	GetSpaceAvailability(ctx context.Context, spaceID uuid.UUID) ([]SpaceAvailability, error)
 	GetSpaceBlocksInRange(ctx context.Context, arg GetSpaceBlocksInRangeParams) ([]SpaceBlock, error)
 	GetSpaceByID(ctx context.Context, id uuid.UUID) (Space, error)
@@ -48,12 +47,12 @@ type Querier interface {
 	ListActiveBookingsInRange(ctx context.Context, arg ListActiveBookingsInRangeParams) ([]Booking, error)
 	ListBookingsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Booking, error)
 	ListBookingsByOwnerEnriched(ctx context.Context, ownerID uuid.UUID) ([]ListBookingsByOwnerEnrichedRow, error)
-	ListPaymentPendingBookings(ctx context.Context) ([]ListPaymentPendingBookingsRow, error)
 	ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) ([]Booking, error)
 	ListBookingsByRenterEnriched(ctx context.Context, renterID uuid.UUID) ([]ListBookingsByRenterEnrichedRow, error)
 	ListBookingsBySpace(ctx context.Context, spaceID uuid.UUID) ([]Booking, error)
 	ListBookingsBySpacePaginated(ctx context.Context, arg ListBookingsBySpacePaginatedParams) ([]Booking, error)
 	ListNotificationsByProfile(ctx context.Context, arg ListNotificationsByProfileParams) ([]Notification, error)
+	ListPaymentPendingBookings(ctx context.Context) ([]ListPaymentPendingBookingsRow, error)
 	ListSpaceBlocksBySpace(ctx context.Context, spaceID uuid.UUID) ([]SpaceBlock, error)
 	ListSpaces(ctx context.Context) ([]Space, error)
 	ListSpacesByCategory(ctx context.Context, category SpaceCategory) ([]Space, error)
@@ -66,11 +65,13 @@ type Querier interface {
 	MarkAllNotificationsRead(ctx context.Context, profileID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
 	SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) (Space, error)
-	SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error
 	SetSystemConfig(ctx context.Context, arg SetSystemConfigParams) error
 	SetUserAdmin(ctx context.Context, arg SetUserAdminParams) (User, error)
+	SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.NullUUID) error
 	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
+	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpsertSpaceAvailability(ctx context.Context, arg UpsertSpaceAvailabilityParams) (SpaceAvailability, error)
 }
 

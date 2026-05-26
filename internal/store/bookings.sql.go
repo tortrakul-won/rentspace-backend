@@ -725,43 +725,6 @@ func (q *Queries) ListBookingsBySpacePaginated(ctx context.Context, arg ListBook
 	return items, nil
 }
 
-const updateBookingStatus = `-- name: UpdateBookingStatus :one
-UPDATE bookings SET status = $2, cancel_reason = $3, updated_at = NOW()
-WHERE id = $1
-RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason, refund_status, process_expires_at, slip_url
-`
-
-type UpdateBookingStatusParams struct {
-	ID           uuid.UUID      `json:"id"`
-	Status       BookingStatus  `json:"status"`
-	CancelReason sql.NullString `json:"cancel_reason"`
-}
-
-func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error) {
-	row := q.db.QueryRowContext(ctx, updateBookingStatus, arg.ID, arg.Status, arg.CancelReason)
-	var i Booking
-	err := row.Scan(
-		&i.ID,
-		&i.SpaceID,
-		&i.RenterID,
-		&i.StartTime,
-		&i.EndTime,
-		&i.TotalPrice,
-		&i.PlatformFee,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Headcount,
-		&i.Notes,
-		&i.ExpiresAt,
-		&i.CancelReason,
-		&i.RefundStatus,
-		&i.ProcessExpiresAt,
-		&i.SlipUrl,
-	)
-	return i, err
-}
-
 const listPaymentPendingBookings = `-- name: ListPaymentPendingBookings :many
 SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason, b.refund_status, b.process_expires_at, b.slip_url, s.name AS space_name, s.location AS space_location, s.images AS space_images, p.display_name AS renter_name
 FROM bookings b
@@ -838,4 +801,41 @@ func (q *Queries) ListPaymentPendingBookings(ctx context.Context) ([]ListPayment
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateBookingStatus = `-- name: UpdateBookingStatus :one
+UPDATE bookings SET status = $2, cancel_reason = $3, updated_at = NOW()
+WHERE id = $1
+RETURNING id, space_id, renter_id, start_time, end_time, total_price, platform_fee, status, created_at, updated_at, headcount, notes, expires_at, cancel_reason, refund_status, process_expires_at, slip_url
+`
+
+type UpdateBookingStatusParams struct {
+	ID           uuid.UUID      `json:"id"`
+	Status       BookingStatus  `json:"status"`
+	CancelReason sql.NullString `json:"cancel_reason"`
+}
+
+func (q *Queries) UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error) {
+	row := q.db.QueryRowContext(ctx, updateBookingStatus, arg.ID, arg.Status, arg.CancelReason)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.SpaceID,
+		&i.RenterID,
+		&i.StartTime,
+		&i.EndTime,
+		&i.TotalPrice,
+		&i.PlatformFee,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Headcount,
+		&i.Notes,
+		&i.ExpiresAt,
+		&i.CancelReason,
+		&i.RefundStatus,
+		&i.ProcessExpiresAt,
+		&i.SlipUrl,
+	)
+	return i, err
 }

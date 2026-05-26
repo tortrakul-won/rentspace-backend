@@ -151,16 +151,16 @@ func (ns NullSpaceCategory) Value() (driver.Value, error) {
 }
 
 type Booking struct {
-	ID          uuid.UUID      `json:"id"`
-	SpaceID     uuid.UUID      `json:"space_id"`
-	RenterID    uuid.UUID      `json:"renter_id"`
-	StartTime   time.Time      `json:"start_time"`
-	EndTime     time.Time      `json:"end_time"`
-	TotalPrice  int32          `json:"total_price"`
-	PlatformFee int32          `json:"platform_fee"`
-	Status      BookingStatus  `json:"status"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID               uuid.UUID      `json:"id"`
+	SpaceID          uuid.UUID      `json:"space_id"`
+	RenterID         uuid.UUID      `json:"renter_id"`
+	StartTime        time.Time      `json:"start_time"`
+	EndTime          time.Time      `json:"end_time"`
+	TotalPrice       int32          `json:"total_price"`
+	PlatformFee      int32          `json:"platform_fee"`
+	Status           BookingStatus  `json:"status"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 	Headcount        sql.NullInt32  `json:"headcount"`
 	Notes            sql.NullString `json:"notes"`
 	ExpiresAt        sql.NullTime   `json:"expires_at"`
@@ -176,8 +176,8 @@ type Notification struct {
 	Type         string          `json:"type"`
 	Payload      json.RawMessage `json:"payload"`
 	ReadAt       sql.NullTime    `json:"read_at"`
-	SupersededAt sql.NullTime    `json:"superseded_at"`
 	CreatedAt    time.Time       `json:"created_at"`
+	SupersededAt sql.NullTime    `json:"superseded_at"`
 	BookingID    uuid.NullUUID   `json:"booking_id"`
 }
 
@@ -196,27 +196,27 @@ type Profile struct {
 }
 
 type Space struct {
-	ID                  uuid.UUID     `json:"id"`
-	OwnerID             uuid.UUID     `json:"owner_id"`
-	Name                string        `json:"name"`
-	Description         string        `json:"description"`
-	Location            string        `json:"location"`
-	Category            SpaceCategory `json:"category"`
-	Images              []string      `json:"images"`
-	HourlyRate          int32         `json:"hourly_rate"`
-	DailyRate           int32         `json:"daily_rate"`
-	MinMinutes          int32         `json:"min_minutes"`
-	Capacity            int32         `json:"capacity"`
-	Amenities           []string      `json:"amenities"`
-	IsActive            bool          `json:"is_active"`
-	CreatedAt           time.Time     `json:"created_at"`
-	UpdatedAt           time.Time     `json:"updated_at"`
-	WeekendSurchargePct      int32         `json:"weekend_surcharge_pct"`
-	MinNoticeHours           int32         `json:"min_notice_hours"`
-	MaxBookingMinutes        sql.NullInt32 `json:"max_booking_minutes"`
-	TurnaroundMinutes        int32         `json:"turnaround_minutes"`
-	DepositPct               int32         `json:"deposit_pct"`
-	PaymentDeadlineMinutes   sql.NullInt32 `json:"payment_deadline_minutes"`
+	ID                     uuid.UUID     `json:"id"`
+	OwnerID                uuid.UUID     `json:"owner_id"`
+	Name                   string        `json:"name"`
+	Description            string        `json:"description"`
+	Location               string        `json:"location"`
+	Category               SpaceCategory `json:"category"`
+	Images                 []string      `json:"images"`
+	HourlyRate             int32         `json:"hourly_rate"`
+	DailyRate              int32         `json:"daily_rate"`
+	MinMinutes             int32         `json:"min_minutes"`
+	Capacity               int32         `json:"capacity"`
+	Amenities              []string      `json:"amenities"`
+	IsActive               bool          `json:"is_active"`
+	CreatedAt              time.Time     `json:"created_at"`
+	UpdatedAt              time.Time     `json:"updated_at"`
+	WeekendSurchargePct    int32         `json:"weekend_surcharge_pct"`
+	MinNoticeHours         int32         `json:"min_notice_hours"`
+	MaxBookingMinutes      sql.NullInt32 `json:"max_booking_minutes"`
+	TurnaroundMinutes      int32         `json:"turnaround_minutes"`
+	DepositPct             int32         `json:"deposit_pct"`
+	PaymentDeadlineMinutes sql.NullInt32 `json:"payment_deadline_minutes"`
 }
 
 type SpaceAvailability struct {
@@ -248,7 +248,7 @@ type User struct {
 	PasswordHash string         `json:"password_hash"`
 	FullName     string         `json:"full_name"`
 	Phone        sql.NullString `json:"phone"`
-	IsAdmin      bool           `json:"is_admin"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
+	IsAdmin      bool           `json:"is_admin"`
 }

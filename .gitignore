@@ -4,6 +4,7 @@ Thumbs.db
 
 # Environment
 .env
+.env.dev
 *.local
 
 # Build output

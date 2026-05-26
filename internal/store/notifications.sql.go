@@ -27,7 +27,7 @@ func (q *Queries) CountUnreadNotifications(ctx context.Context, profileID uuid.U
 const createNotification = `-- name: CreateNotification :one
 INSERT INTO notifications (profile_id, type, payload, booking_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id, profile_id, type, payload, read_at, superseded_at, created_at, booking_id
+RETURNING id, profile_id, type, payload, read_at, created_at, superseded_at, booking_id
 `
 
 type CreateNotificationParams struct {
@@ -38,7 +38,12 @@ type CreateNotificationParams struct {
 }
 
 func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error) {
-	row := q.db.QueryRowContext(ctx, createNotification, arg.ProfileID, arg.Type, arg.Payload, arg.BookingID)
+	row := q.db.QueryRowContext(ctx, createNotification,
+		arg.ProfileID,
+		arg.Type,
+		arg.Payload,
+		arg.BookingID,
+	)
 	var i Notification
 	err := row.Scan(
 		&i.ID,
@@ -46,15 +51,15 @@ func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotification
 		&i.Type,
 		&i.Payload,
 		&i.ReadAt,
-		&i.SupersededAt,
 		&i.CreatedAt,
+		&i.SupersededAt,
 		&i.BookingID,
 	)
 	return i, err
 }
 
 const listNotificationsByProfile = `-- name: ListNotificationsByProfile :many
-SELECT id, profile_id, type, payload, read_at, superseded_at, created_at, booking_id FROM notifications
+SELECT id, profile_id, type, payload, read_at, created_at, superseded_at, booking_id FROM notifications
 WHERE profile_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -80,8 +85,8 @@ func (q *Queries) ListNotificationsByProfile(ctx context.Context, arg ListNotifi
 			&i.Type,
 			&i.Payload,
 			&i.ReadAt,
-			&i.SupersededAt,
 			&i.CreatedAt,
+			&i.SupersededAt,
 			&i.BookingID,
 		); err != nil {
 			return nil, err
@@ -127,7 +132,7 @@ UPDATE notifications SET superseded_at = NOW()
 WHERE booking_id = $1 AND superseded_at IS NULL
 `
 
-func (q *Queries) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error {
+func (q *Queries) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.NullUUID) error {
 	_, err := q.db.ExecContext(ctx, supersedeNotificationsByBooking, bookingID)
 	return err
 }
