@@ -225,26 +225,29 @@ func (h *BookingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "invalid id")
 		return
 	}
+
+	// Renter gets enriched detail (owner contact + space info).
+	if claims.Role == "renter" {
+		detail, err := h.q.GetRenterBookingDetail(r.Context(), id, claims.ProfileID)
+		if err != nil {
+			Error(w, http.StatusNotFound, "booking not found")
+			return
+		}
+		JSON(w, http.StatusOK, renterBookingDetailToResponse(detail))
+		return
+	}
+
+	// Owner: basic booking, scoped to their spaces.
 	booking, err := h.q.GetBookingByID(r.Context(), id)
 	if err != nil {
 		Error(w, http.StatusNotFound, "booking not found")
 		return
 	}
-
-	switch claims.Role {
-	case "renter":
-		if booking.RenterID != claims.ProfileID {
-			Error(w, http.StatusForbidden, "this booking does not belong to you")
-			return
-		}
-	case "owner":
-		space, err := h.q.GetSpaceByID(r.Context(), booking.SpaceID)
-		if err != nil || space.OwnerID != claims.ProfileID {
-			Error(w, http.StatusForbidden, "this booking is not for your space")
-			return
-		}
+	space, err := h.q.GetSpaceByID(r.Context(), booking.SpaceID)
+	if err != nil || space.OwnerID != claims.ProfileID {
+		Error(w, http.StatusForbidden, "this booking is not for your space")
+		return
 	}
-
 	JSON(w, http.StatusOK, booking)
 }
 
