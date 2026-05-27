@@ -24,6 +24,8 @@ type Store interface {
 	ListAdminProfileIDs(ctx context.Context) ([]uuid.UUID, error)
 	// GetOwnerBookingDetail returns a booking enriched with renter info, scoped to the owner's spaces.
 	GetOwnerBookingDetail(ctx context.Context, id uuid.UUID, ownerProfileID uuid.UUID) (OwnerBookingDetailRow, error)
+	// GetRenterBookingDetail returns a booking enriched with owner/space info, scoped to the renter.
+	GetRenterBookingDetail(ctx context.Context, id uuid.UUID, renterProfileID uuid.UUID) (RenterBookingDetailRow, error)
 }
 
 // SQLStore is the production implementation backed by *sql.DB.
@@ -225,6 +227,74 @@ func (s *SQLStore) GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (Adm
 		&r.RenterProfileName,
 		&r.RenterPhone,
 		&r.OwnerProfileName,
+	)
+	return r, err
+}
+
+// RenterBookingDetailRow is an enriched booking for the renter detail page.
+type RenterBookingDetailRow struct {
+	ID               uuid.UUID      `json:"id"`
+	SpaceID          uuid.UUID      `json:"space_id"`
+	RenterID         uuid.UUID      `json:"renter_id"`
+	StartTime        time.Time      `json:"start_time"`
+	EndTime          time.Time      `json:"end_time"`
+	TotalPrice       int32          `json:"total_price"`
+	PlatformFee      int32          `json:"platform_fee"`
+	Status           BookingStatus  `json:"status"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
+	CancelReason     sql.NullString `json:"cancel_reason"`
+	RefundStatus     sql.NullString `json:"refund_status"`
+	ProcessExpiresAt sql.NullTime   `json:"process_expires_at"`
+	SlipUrl          sql.NullString `json:"slip_url"`
+	RefCode          string         `json:"ref_code"`
+	SpaceName        string         `json:"space_name"`
+	SpaceLocation    string         `json:"space_location"`
+	SpaceImages      []string       `json:"space_images"`
+	OwnerProfileName string         `json:"owner_profile_name"`
+	OwnerPhone       string         `json:"owner_phone"`
+	OwnerLineID      string         `json:"owner_line_id"`
+}
+
+const getRenterBookingDetail = `
+SELECT
+  b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee,
+  b.status, b.created_at, b.updated_at, b.cancel_reason, b.refund_status,
+  b.process_expires_at, b.slip_url, b.ref_code,
+  s.name AS space_name, s.location AS space_location, s.images AS space_images,
+  op.profile_name AS owner_profile_name,
+  op.phone AS owner_phone,
+  COALESCE(op.line_id, '') AS owner_line_id
+FROM bookings b
+JOIN spaces s ON s.id = b.space_id
+JOIN profiles op ON op.id = s.owner_id
+WHERE b.id = $1 AND b.renter_id = $2
+`
+
+func (s *SQLStore) GetRenterBookingDetail(ctx context.Context, id uuid.UUID, renterProfileID uuid.UUID) (RenterBookingDetailRow, error) {
+	var r RenterBookingDetailRow
+	err := s.db.QueryRowContext(ctx, getRenterBookingDetail, id, renterProfileID).Scan(
+		&r.ID,
+		&r.SpaceID,
+		&r.RenterID,
+		&r.StartTime,
+		&r.EndTime,
+		&r.TotalPrice,
+		&r.PlatformFee,
+		&r.Status,
+		&r.CreatedAt,
+		&r.UpdatedAt,
+		&r.CancelReason,
+		&r.RefundStatus,
+		&r.ProcessExpiresAt,
+		&r.SlipUrl,
+		&r.RefCode,
+		&r.SpaceName,
+		&r.SpaceLocation,
+		pq.Array(&r.SpaceImages),
+		&r.OwnerProfileName,
+		&r.OwnerPhone,
+		&r.OwnerLineID,
 	)
 	return r, err
 }
