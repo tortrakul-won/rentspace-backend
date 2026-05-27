@@ -35,7 +35,7 @@ func TestRegister_Success(t *testing.T) {
 	}
 	body, _ := json.Marshal(RegisterRequest{
 		Email: "test@example.com", Password: "password",
-		FullName: "Test User", ProfileRole: "renter", DisplayName: "Personal",
+		ProfileRole: "renter", ProfileName: "Personal",
 	})
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
@@ -57,11 +57,10 @@ func TestRegister_Success(t *testing.T) {
 
 func TestRegister_MissingFields(t *testing.T) {
 	cases := []RegisterRequest{
-		{Password: "pw", FullName: "n", ProfileRole: "renter", DisplayName: "p"},   // no email
-		{Email: "a@b.com", FullName: "n", ProfileRole: "renter", DisplayName: "p"}, // no password
-		{Email: "a@b.com", Password: "pw", ProfileRole: "renter", DisplayName: "p"}, // no full_name
-		{Email: "a@b.com", Password: "pw", FullName: "n", DisplayName: "p"},         // no profile_role
-		{Email: "a@b.com", Password: "pw", FullName: "n", ProfileRole: "renter"},    // no display_name
+		{Password: "pw", ProfileRole: "renter", ProfileName: "p"},   // no email
+		{Email: "a@b.com", ProfileRole: "renter", ProfileName: "p"}, // no password
+		{Email: "a@b.com", Password: "pw", ProfileName: "p"},         // no profile_role
+		{Email: "a@b.com", Password: "pw", ProfileRole: "renter"},    // no profile_name
 	}
 	for _, tc := range cases {
 		body, _ := json.Marshal(tc)
@@ -76,7 +75,7 @@ func TestRegister_MissingFields(t *testing.T) {
 
 func TestRegister_InvalidRole(t *testing.T) {
 	body, _ := json.Marshal(RegisterRequest{
-		Email: "a@b.com", Password: "pw", FullName: "n", ProfileRole: "admin", DisplayName: "p",
+		Email: "a@b.com", Password: "pw", ProfileRole: "admin", ProfileName: "p",
 	})
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
@@ -93,7 +92,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 		},
 	}
 	body, _ := json.Marshal(RegisterRequest{
-		Email: "dup@example.com", Password: "password", FullName: "n", ProfileRole: "renter", DisplayName: "p",
+		Email: "dup@example.com", Password: "password", ProfileRole: "renter", ProfileName: "p",
 	})
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewReader(body))
@@ -220,7 +219,7 @@ func TestAddProfile_Success(t *testing.T) {
 	q := &mockStore{
 		createProfile: func(_ context.Context, _ store.CreateProfileParams) (store.Profile, error) { return ownerProfile, nil },
 	}
-	body, _ := json.Marshal(AddProfileRequest{Role: "owner", DisplayName: "My Property"})
+	body, _ := json.Marshal(AddProfileRequest{Role: "owner", ProfileName: "My Property"})
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/auth/profiles", bytes.NewReader(body))
 	r = r.WithContext(middleware.ContextWithClaims(r.Context(), &middleware.Claims{
@@ -240,7 +239,7 @@ func TestAddProfile_DuplicateRole(t *testing.T) {
 			return store.Profile{}, errors.New("unique constraint")
 		},
 	}
-	body, _ := json.Marshal(AddProfileRequest{Role: "renter", DisplayName: "Another"})
+	body, _ := json.Marshal(AddProfileRequest{Role: "renter", ProfileName: "Another"})
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/auth/profiles", bytes.NewReader(body))
 	r = r.WithContext(middleware.ContextWithClaims(r.Context(), &middleware.Claims{

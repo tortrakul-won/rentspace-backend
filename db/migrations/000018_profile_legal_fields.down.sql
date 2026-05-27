@@ -1,0 +1,11 @@
+ALTER TABLE profiles
+  DROP COLUMN IF EXISTS legal_name,
+  DROP COLUMN IF EXISTS phone,
+  DROP COLUMN IF EXISTS address_line1,
+  DROP COLUMN IF EXISTS subdistrict,
+  DROP COLUMN IF EXISTS district,
+  DROP COLUMN IF EXISTS province,
+  DROP COLUMN IF EXISTS postal_code,
+  DROP COLUMN IF EXISTS branch_number;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;

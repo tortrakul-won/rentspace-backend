@@ -33,12 +33,19 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if body.Email == "" || body.Password == "" || body.FullName == "" || body.ProfileRole == "" || body.DisplayName == "" {
-		Error(w, http.StatusBadRequest, "email, password, full_name, profile_role and display_name are required")
+	if body.Email == "" || body.Password == "" || body.ProfileRole == "" ||
+		body.ProfileName == "" || body.LegalNameTh == "" || body.Phone == "" ||
+		body.AddressLine1 == "" || body.Subdistrict == "" || body.District == "" ||
+		body.Province == "" || body.PostalCode == "" {
+		Error(w, http.StatusBadRequest, "email, password, profile_role, profile_name, legal_name_th, phone, address_line1, subdistrict, district, province and postal_code are required")
 		return
 	}
 	if body.ProfileRole != "owner" && body.ProfileRole != "renter" {
 		Error(w, http.StatusBadRequest, "profile_role must be owner or renter")
+		return
+	}
+	if body.ProfileRole == "owner" && body.TaxID == "" {
+		Error(w, http.StatusBadRequest, "tax_id is required for owner profiles")
 		return
 	}
 	if len(body.Password) < 8 {
@@ -65,16 +72,27 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		user, err = q.CreateUser(r.Context(), store.CreateUserParams{
 			Email:        body.Email,
 			PasswordHash: string(hash),
-			FullName:     body.FullName,
-			Phone:        sql.NullString{String: body.Phone, Valid: body.Phone != ""},
 		})
 		if err != nil {
 			return err
 		}
 		profile, err = q.CreateProfile(r.Context(), store.CreateProfileParams{
-			UserID:      user.ID,
-			Role:        store.ProfileRole(body.ProfileRole),
-			DisplayName: body.DisplayName,
+			UserID:          user.ID,
+			Role:            store.ProfileRole(body.ProfileRole),
+			ProfileName:     body.ProfileName,
+			LegalNameTh:     body.LegalNameTh,
+			LegalNameEn:     body.LegalNameEn,
+			Phone:           body.Phone,
+			AddressLine1:    body.AddressLine1,
+			Subdistrict:     body.Subdistrict,
+			District:        body.District,
+			Province:        body.Province,
+			PostalCode:      body.PostalCode,
+			BranchNumber:    body.BranchNumber,
+			TaxID:           sql.NullString{String: body.TaxID, Valid: body.TaxID != ""},
+			IsJuristic:      body.IsJuristic,
+			IsVatRegistered: body.IsVatRegistered,
+			LineID:          sql.NullString{String: body.LineID, Valid: body.LineID != ""},
 		})
 		return err
 	}); err != nil {
@@ -198,15 +216,34 @@ func (h *AuthHandler) AddProfile(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "role must be owner or renter")
 		return
 	}
-	if body.DisplayName == "" {
-		Error(w, http.StatusBadRequest, "display_name is required")
+	if body.ProfileName == "" || body.LegalNameTh == "" || body.Phone == "" ||
+		body.AddressLine1 == "" || body.Subdistrict == "" || body.District == "" ||
+		body.Province == "" || body.PostalCode == "" {
+		Error(w, http.StatusBadRequest, "profile_name, legal_name_th, phone, address_line1, subdistrict, district, province and postal_code are required")
+		return
+	}
+	if body.Role == "owner" && body.TaxID == "" {
+		Error(w, http.StatusBadRequest, "tax_id is required for owner profiles")
 		return
 	}
 
 	profile, err := h.q.CreateProfile(r.Context(), store.CreateProfileParams{
-		UserID:      claims.UserID,
-		Role:        store.ProfileRole(body.Role),
-		DisplayName: body.DisplayName,
+		UserID:          claims.UserID,
+		Role:            store.ProfileRole(body.Role),
+		ProfileName:     body.ProfileName,
+		LegalNameTh:     body.LegalNameTh,
+		LegalNameEn:     body.LegalNameEn,
+		Phone:           body.Phone,
+		AddressLine1:    body.AddressLine1,
+		Subdistrict:     body.Subdistrict,
+		District:        body.District,
+		Province:        body.Province,
+		PostalCode:      body.PostalCode,
+		BranchNumber:    body.BranchNumber,
+		TaxID:           sql.NullString{String: body.TaxID, Valid: body.TaxID != ""},
+		IsJuristic:      body.IsJuristic,
+		IsVatRegistered: body.IsVatRegistered,
+		LineID:          sql.NullString{String: body.LineID, Valid: body.LineID != ""},
 	})
 	if err != nil {
 		Error(w, http.StatusConflict, "a profile for this role already exists")
@@ -264,8 +301,6 @@ func toUserResponse(u store.User) UserResponse {
 	return UserResponse{
 		ID:        u.ID.String(),
 		Email:     u.Email,
-		FullName:  u.FullName,
-		Phone:     u.Phone.String,
 		IsAdmin:   u.IsAdmin,
 		CreatedAt: u.CreatedAt.Format(time.RFC3339),
 	}
@@ -277,7 +312,16 @@ func toProfileResponse(p store.Profile) ProfileResponse {
 		ID:              p.ID.String(),
 		UserID:          p.UserID.String(),
 		Role:            string(p.Role),
-		DisplayName:     p.DisplayName,
+		ProfileName:     p.ProfileName,
+		LegalNameTh:     p.LegalNameTh,
+		LegalNameEn:     p.LegalNameEn,
+		Phone:           p.Phone,
+		AddressLine1:    p.AddressLine1,
+		Subdistrict:     p.Subdistrict,
+		District:        p.District,
+		Province:        p.Province,
+		PostalCode:      p.PostalCode,
+		BranchNumber:    p.BranchNumber,
 		TaxID:           p.TaxID.String,
 		IsJuristic:      p.IsJuristic,
 		IsVatRegistered: p.IsVatRegistered,
@@ -286,68 +330,95 @@ func toProfileResponse(p store.Profile) ProfileResponse {
 	}
 }
 
-// UpdateUser updates editable account fields (full_name, phone) for the authenticated user.
-func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+// UpdateProfile updates editable fields for the active profile.
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.ClaimsFromCtx(r.Context())
 
 	var body struct {
-		FullName string `json:"full_name"`
-		Phone    string `json:"phone"`
+		ProfileName     string `json:"profile_name"`
+		LegalNameTh     string `json:"legal_name_th"`
+		LegalNameEn     string `json:"legal_name_en"`
+		Phone           string `json:"phone"`
+		AddressLine1    string `json:"address_line1"`
+		Subdistrict     string `json:"subdistrict"`
+		District        string `json:"district"`
+		Province        string `json:"province"`
+		PostalCode      string `json:"postal_code"`
+		BranchNumber    string `json:"branch_number"`
+		TaxID           string `json:"tax_id"`
+		IsJuristic      *bool  `json:"is_juristic"`
+		IsVatRegistered *bool  `json:"is_vat_registered"`
+		LineID          string `json:"line_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if body.FullName == "" {
-		existing, err := h.q.GetUserByID(r.Context(), claims.UserID)
-		if err != nil {
-			ServerError(w, r, err)
-			return
-		}
-		body.FullName = existing.FullName
-	}
-
-	updated, err := h.q.UpdateUser(r.Context(), store.UpdateUserParams{
-		ID:       claims.UserID,
-		FullName: body.FullName,
-		Phone:    sql.NullString{String: body.Phone, Valid: body.Phone != ""},
-	})
+	existing, err := h.q.GetProfileByID(r.Context(), claims.ProfileID)
 	if err != nil {
 		ServerError(w, r, err)
 		return
 	}
 
-	JSON(w, http.StatusOK, toUserResponse(updated))
-}
-
-// UpdateProfile updates editable fields (display_name, line_id) for the active profile.
-func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	claims := middleware.ClaimsFromCtx(r.Context())
-
-	var body struct {
-		DisplayName string `json:"display_name"`
-		LineID      string `json:"line_id"`
+	// Preserve existing values for omitted fields
+	if body.ProfileName == "" {
+		body.ProfileName = existing.ProfileName
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		Error(w, http.StatusBadRequest, "invalid request body")
-		return
+	if body.LegalNameTh == "" {
+		body.LegalNameTh = existing.LegalNameTh
 	}
-
-	// Preserve existing display_name if not provided
-	if body.DisplayName == "" {
-		existing, err := h.q.GetProfileByID(r.Context(), claims.ProfileID)
-		if err != nil {
-			ServerError(w, r, err)
-			return
-		}
-		body.DisplayName = existing.DisplayName
+	// LegalNameEn intentionally not preserved — empty string is valid (bilingual optional)
+	if body.Phone == "" {
+		body.Phone = existing.Phone
+	}
+	if body.AddressLine1 == "" {
+		body.AddressLine1 = existing.AddressLine1
+	}
+	if body.Subdistrict == "" {
+		body.Subdistrict = existing.Subdistrict
+	}
+	if body.District == "" {
+		body.District = existing.District
+	}
+	if body.Province == "" {
+		body.Province = existing.Province
+	}
+	if body.PostalCode == "" {
+		body.PostalCode = existing.PostalCode
+	}
+	if body.BranchNumber == "" {
+		body.BranchNumber = existing.BranchNumber
+	}
+	taxID := sql.NullString{String: body.TaxID, Valid: body.TaxID != ""}
+	if !taxID.Valid {
+		taxID = existing.TaxID
+	}
+	isJuristic := existing.IsJuristic
+	if body.IsJuristic != nil {
+		isJuristic = *body.IsJuristic
+	}
+	isVatRegistered := existing.IsVatRegistered
+	if body.IsVatRegistered != nil {
+		isVatRegistered = *body.IsVatRegistered
 	}
 
 	updated, err := h.q.UpdateProfile(r.Context(), store.UpdateProfileParams{
-		ID:          claims.ProfileID,
-		DisplayName: body.DisplayName,
-		LineID:      sql.NullString{String: body.LineID, Valid: body.LineID != ""},
+		ID:              claims.ProfileID,
+		ProfileName:     body.ProfileName,
+		LegalNameTh:     body.LegalNameTh,
+		LegalNameEn:     body.LegalNameEn,
+		Phone:           body.Phone,
+		AddressLine1:    body.AddressLine1,
+		Subdistrict:     body.Subdistrict,
+		District:        body.District,
+		Province:        body.Province,
+		PostalCode:      body.PostalCode,
+		BranchNumber:    body.BranchNumber,
+		TaxID:           taxID,
+		IsJuristic:      isJuristic,
+		IsVatRegistered: isVatRegistered,
+		LineID:          sql.NullString{String: body.LineID, Valid: body.LineID != ""},
 	})
 	if err != nil {
 		ServerError(w, r, err)

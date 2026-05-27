@@ -7,38 +7,28 @@ package store
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash, full_name, phone)
-VALUES ($1, $2, $3, $4)
-RETURNING id, email, password_hash, full_name, phone, created_at, updated_at, is_admin
+INSERT INTO users (email, password_hash)
+VALUES ($1, $2)
+RETURNING id, email, password_hash, created_at, updated_at, is_admin
 `
 
 type CreateUserParams struct {
-	Email        string         `json:"email"`
-	PasswordHash string         `json:"password_hash"`
-	FullName     string         `json:"full_name"`
-	Phone        sql.NullString `json:"phone"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
-		arg.Email,
-		arg.PasswordHash,
-		arg.FullName,
-		arg.Phone,
-	)
+	row := q.db.QueryRowContext(ctx, createUser, arg.Email, arg.PasswordHash)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.FullName,
-		&i.Phone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
@@ -47,7 +37,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, full_name, phone, created_at, updated_at, is_admin FROM users WHERE email = $1
+SELECT id, email, password_hash, created_at, updated_at, is_admin FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -57,8 +47,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.FullName,
-		&i.Phone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
@@ -67,7 +55,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, full_name, phone, created_at, updated_at, is_admin FROM users WHERE id = $1
+SELECT id, email, password_hash, created_at, updated_at, is_admin FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -77,8 +65,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.FullName,
-		&i.Phone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,
@@ -89,7 +75,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 const setUserAdmin = `-- name: SetUserAdmin :one
 UPDATE users SET is_admin = $2, updated_at = NOW()
 WHERE id = $1
-RETURNING id, email, password_hash, full_name, phone, created_at, updated_at, is_admin
+RETURNING id, email, password_hash, created_at, updated_at, is_admin
 `
 
 type SetUserAdminParams struct {
@@ -104,36 +90,6 @@ func (q *Queries) SetUserAdmin(ctx context.Context, arg SetUserAdminParams) (Use
 		&i.ID,
 		&i.Email,
 		&i.PasswordHash,
-		&i.FullName,
-		&i.Phone,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.IsAdmin,
-	)
-	return i, err
-}
-
-const updateUser = `-- name: UpdateUser :one
-UPDATE users SET full_name = $2, phone = $3, updated_at = NOW()
-WHERE id = $1
-RETURNING id, email, password_hash, full_name, phone, created_at, updated_at, is_admin
-`
-
-type UpdateUserParams struct {
-	ID       uuid.UUID      `json:"id"`
-	FullName string         `json:"full_name"`
-	Phone    sql.NullString `json:"phone"`
-}
-
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUser, arg.ID, arg.FullName, arg.Phone)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Email,
-		&i.PasswordHash,
-		&i.FullName,
-		&i.Phone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.IsAdmin,

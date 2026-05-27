@@ -51,10 +51,22 @@ func notificationToResponse(n store.Notification) NotificationResponse {
 type RegisterRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
-	FullName    string `json:"full_name"`
-	Phone       string `json:"phone,omitempty"`
 	ProfileRole string `json:"profile_role"` // "owner" or "renter"
-	DisplayName string `json:"display_name"`
+	// Profile fields
+	ProfileName     string `json:"profile_name"`
+	LegalNameTh     string `json:"legal_name_th"`
+	LegalNameEn     string `json:"legal_name_en"`
+	Phone           string `json:"phone"`
+	AddressLine1    string `json:"address_line1"`
+	Subdistrict     string `json:"subdistrict"`
+	District        string `json:"district"`
+	Province        string `json:"province"`
+	PostalCode      string `json:"postal_code"`
+	BranchNumber    string `json:"branch_number"`
+	TaxID           string `json:"tax_id,omitempty"`
+	IsJuristic      bool   `json:"is_juristic"`
+	IsVatRegistered bool   `json:"is_vat_registered"`
+	LineID          string `json:"line_id,omitempty"`
 }
 
 type LoginRequest struct {
@@ -67,8 +79,21 @@ type SwitchProfileRequest struct {
 }
 
 type AddProfileRequest struct {
-	Role        string `json:"role"` // "owner" or "renter"
-	DisplayName string `json:"display_name"`
+	Role            string `json:"role"` // "owner" or "renter"
+	ProfileName     string `json:"profile_name"`
+	LegalNameTh     string `json:"legal_name_th"`
+	LegalNameEn     string `json:"legal_name_en"`
+	Phone           string `json:"phone"`
+	AddressLine1    string `json:"address_line1"`
+	Subdistrict     string `json:"subdistrict"`
+	District        string `json:"district"`
+	Province        string `json:"province"`
+	PostalCode      string `json:"postal_code"`
+	BranchNumber    string `json:"branch_number"`
+	TaxID           string `json:"tax_id,omitempty"`
+	IsJuristic      bool   `json:"is_juristic"`
+	IsVatRegistered bool   `json:"is_vat_registered"`
+	LineID          string `json:"line_id,omitempty"`
 }
 
 type AuthResponse struct {
@@ -98,8 +123,6 @@ type CurrentUserResponse struct {
 type UserResponse struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
-	FullName  string `json:"full_name"`
-	Phone     string `json:"phone,omitempty"`
 	IsAdmin   bool   `json:"is_admin"`
 	CreatedAt string `json:"created_at"`
 }
@@ -108,7 +131,16 @@ type ProfileResponse struct {
 	ID              string `json:"id"`
 	UserID          string `json:"user_id"`
 	Role            string `json:"role"`
-	DisplayName     string `json:"display_name"`
+	ProfileName     string `json:"profile_name"`
+	LegalNameTh     string `json:"legal_name_th"`
+	LegalNameEn     string `json:"legal_name_en"`
+	Phone           string `json:"phone"`
+	AddressLine1    string `json:"address_line1"`
+	Subdistrict     string `json:"subdistrict"`
+	District        string `json:"district"`
+	Province        string `json:"province"`
+	PostalCode      string `json:"postal_code"`
+	BranchNumber    string `json:"branch_number"`
 	TaxID           string `json:"tax_id,omitempty"`
 	IsJuristic      bool   `json:"is_juristic"`
 	IsVatRegistered bool   `json:"is_vat_registered"`
@@ -221,11 +253,9 @@ type AdminBookingDetailResponse struct {
 	SpaceName         string   `json:"space_name"`
 	SpaceLocation     string   `json:"space_location"`
 	SpaceImages       []string `json:"space_images"`
-	RenterDisplayName string   `json:"renter_display_name"`
-	RenterFullName    string   `json:"renter_full_name"`
-	RenterPhone       *string  `json:"renter_phone"`
-	OwnerDisplayName  string   `json:"owner_display_name"`
-	OwnerFullName     string   `json:"owner_full_name"`
+	RenterProfileName string `json:"renter_profile_name"`
+	RenterPhone       string `json:"renter_phone"`
+	OwnerProfileName  string `json:"owner_profile_name"`
 }
 
 func adminBookingDetailToResponse(r store.AdminBookingDetailRow) AdminBookingDetailResponse {
@@ -244,10 +274,8 @@ func adminBookingDetailToResponse(r store.AdminBookingDetailRow) AdminBookingDet
 		SpaceName:         r.SpaceName,
 		SpaceLocation:     r.SpaceLocation,
 		SpaceImages:       r.SpaceImages,
-		RenterDisplayName: r.RenterDisplayName,
-		RenterFullName:    r.RenterFullName,
-		OwnerDisplayName:  r.OwnerDisplayName,
-		OwnerFullName:     r.OwnerFullName,
+		RenterProfileName: r.RenterProfileName,
+		OwnerProfileName:  r.OwnerProfileName,
 	}
 	if r.CancelReason.Valid {
 		resp.CancelReason = &r.CancelReason.String
@@ -262,9 +290,7 @@ func adminBookingDetailToResponse(r store.AdminBookingDetailRow) AdminBookingDet
 	if r.SlipUrl.Valid {
 		resp.SlipUrl = &r.SlipUrl.String
 	}
-	if r.RenterPhone.Valid {
-		resp.RenterPhone = &r.RenterPhone.String
-	}
+	resp.RenterPhone = r.RenterPhone
 	return resp
 }
 
@@ -285,9 +311,8 @@ type OwnerBookingDetailResponse struct {
 	SpaceName         string   `json:"space_name"`
 	SpaceLocation     string   `json:"space_location"`
 	SpaceImages       []string `json:"space_images"`
-	RenterDisplayName string   `json:"renter_display_name"`
-	RenterFullName    string   `json:"renter_full_name"`
-	RenterPhone       *string  `json:"renter_phone"`
+	RenterProfileName string `json:"renter_profile_name"`
+	RenterPhone       string `json:"renter_phone"`
 }
 
 func ownerBookingDetailToResponse(r store.OwnerBookingDetailRow) OwnerBookingDetailResponse {
@@ -305,15 +330,12 @@ func ownerBookingDetailToResponse(r store.OwnerBookingDetailRow) OwnerBookingDet
 		SpaceName:         r.SpaceName,
 		SpaceLocation:     r.SpaceLocation,
 		SpaceImages:       r.SpaceImages,
-		RenterDisplayName: r.RenterDisplayName,
-		RenterFullName:    r.RenterFullName,
+		RenterProfileName: r.RenterProfileName,
 	}
 	if r.CancelReason.Valid {
 		resp.CancelReason = &r.CancelReason.String
 	}
-	if r.RenterPhone.Valid {
-		resp.RenterPhone = &r.RenterPhone.String
-	}
+	resp.RenterPhone = r.RenterPhone
 	return resp
 }
 

@@ -71,7 +71,6 @@ type Querier interface {
 	UpdateBookingStatus(ctx context.Context, arg UpdateBookingStatusParams) (Booking, error)
 	UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error)
 	UpdateSpace(ctx context.Context, arg UpdateSpaceParams) (Space, error)
-	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 	UpsertSpaceAvailability(ctx context.Context, arg UpsertSpaceAvailabilityParams) (SpaceAvailability, error)
 }
 
