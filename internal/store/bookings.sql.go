@@ -742,7 +742,7 @@ func (q *Queries) ListBookingsBySpacePaginated(ctx context.Context, arg ListBook
 }
 
 const listPaymentPendingBookings = `-- name: ListPaymentPendingBookings :many
-SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason, b.refund_status, b.process_expires_at, b.slip_url, b.ref_code, s.name AS space_name, s.location AS space_location, s.images AS space_images, p.display_name AS renter_name
+SELECT b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee, b.status, b.created_at, b.updated_at, b.headcount, b.notes, b.expires_at, b.cancel_reason, b.refund_status, b.process_expires_at, b.slip_url, b.ref_code, s.name AS space_name, s.location AS space_location, s.images AS space_images, p.profile_name AS renter_name
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
 JOIN profiles p ON p.id = b.renter_id
