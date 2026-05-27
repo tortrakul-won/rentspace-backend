@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
@@ -501,8 +500,6 @@ func stubUser() store.User {
 		ID:           testUserID,
 		Email:        "test@example.com",
 		PasswordHash: string(hash),
-		FullName:     "Test User",
-		Phone:        sql.NullString{},
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -513,7 +510,8 @@ func stubProfile(role store.ProfileRole) store.Profile {
 		ID:          testProfileID,
 		UserID:      testUserID,
 		Role:        role,
-		DisplayName: "Personal",
+		ProfileName: "Personal",
+		LegalNameTh: "ทดสอบ",
 		IsActive:    true,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),

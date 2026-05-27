@@ -186,7 +186,7 @@ type Profile struct {
 	ID              uuid.UUID      `json:"id"`
 	UserID          uuid.UUID      `json:"user_id"`
 	Role            ProfileRole    `json:"role"`
-	DisplayName     string         `json:"display_name"`
+	ProfileName     string         `json:"profile_name"`
 	TaxID           sql.NullString `json:"tax_id"`
 	IsJuristic      bool           `json:"is_juristic"`
 	IsVatRegistered bool           `json:"is_vat_registered"`
@@ -194,6 +194,15 @@ type Profile struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	LineID          sql.NullString `json:"line_id"`
+	LegalNameTh     string         `json:"legal_name_th"`
+	Phone           string         `json:"phone"`
+	AddressLine1    string         `json:"address_line1"`
+	Subdistrict     string         `json:"subdistrict"`
+	District        string         `json:"district"`
+	Province        string         `json:"province"`
+	PostalCode      string         `json:"postal_code"`
+	BranchNumber    string         `json:"branch_number"`
+	LegalNameEn     string         `json:"legal_name_en"`
 }
 
 type Space struct {
@@ -244,12 +253,10 @@ type SystemConfig struct {
 }
 
 type User struct {
-	ID           uuid.UUID      `json:"id"`
-	Email        string         `json:"email"`
-	PasswordHash string         `json:"password_hash"`
-	FullName     string         `json:"full_name"`
-	Phone        sql.NullString `json:"phone"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	IsAdmin      bool           `json:"is_admin"`
+	ID           uuid.UUID `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	IsAdmin      bool      `json:"is_admin"`
 }

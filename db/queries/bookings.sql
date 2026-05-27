@@ -102,7 +102,7 @@ WHERE renter_id  = $1
 RETURNING *;
 
 -- name: ListPaymentPendingBookings :many
-SELECT b.*, s.name AS space_name, s.location AS space_location, s.images AS space_images, p.display_name AS renter_name
+SELECT b.*, s.name AS space_name, s.location AS space_location, s.images AS space_images, p.profile_name AS renter_name
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
 JOIN profiles p ON p.id = b.renter_id

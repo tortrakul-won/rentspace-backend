@@ -101,11 +101,9 @@ type AdminBookingDetailRow struct {
 	SpaceName           string         `json:"space_name"`
 	SpaceLocation       string         `json:"space_location"`
 	SpaceImages         []string       `json:"space_images"`
-	RenterDisplayName   string         `json:"renter_display_name"`
-	RenterFullName      string         `json:"renter_full_name"`
-	RenterPhone         sql.NullString `json:"renter_phone"`
-	OwnerDisplayName    string         `json:"owner_display_name"`
-	OwnerFullName       string         `json:"owner_full_name"`
+	RenterProfileName   string `json:"renter_profile_name"`
+	RenterPhone         string `json:"renter_phone"`
+	OwnerProfileName    string `json:"owner_profile_name"`
 }
 
 const getAdminBookingDetail = `
@@ -114,17 +112,13 @@ SELECT
   b.status, b.created_at, b.updated_at, b.cancel_reason, b.refund_status,
   b.process_expires_at, b.slip_url, b.ref_code,
   s.name AS space_name, s.location AS space_location, s.images AS space_images,
-  renter_p.display_name AS renter_display_name,
-  renter_u.full_name AS renter_full_name,
-  renter_u.phone AS renter_phone,
-  owner_p.display_name AS owner_display_name,
-  owner_u.full_name AS owner_full_name
+  renter_p.profile_name AS renter_profile_name,
+  renter_p.phone AS renter_phone,
+  owner_p.profile_name AS owner_profile_name
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
 JOIN profiles renter_p ON renter_p.id = b.renter_id
-JOIN users renter_u ON renter_u.id = renter_p.user_id
 JOIN profiles owner_p ON owner_p.id = s.owner_id
-JOIN users owner_u ON owner_u.id = owner_p.user_id
 WHERE b.id = $1
 `
 
@@ -166,9 +160,8 @@ type OwnerBookingDetailRow struct {
 	SpaceName         string         `json:"space_name"`
 	SpaceLocation     string         `json:"space_location"`
 	SpaceImages       []string       `json:"space_images"`
-	RenterDisplayName string         `json:"renter_display_name"`
-	RenterFullName    string         `json:"renter_full_name"`
-	RenterPhone       sql.NullString `json:"renter_phone"`
+	RenterProfileName string `json:"renter_profile_name"`
+	RenterPhone       string `json:"renter_phone"`
 }
 
 const getOwnerBookingDetail = `
@@ -176,13 +169,11 @@ SELECT
   b.id, b.space_id, b.renter_id, b.start_time, b.end_time, b.total_price, b.platform_fee,
   b.status, b.created_at, b.updated_at, b.cancel_reason, b.ref_code,
   s.name AS space_name, s.location AS space_location, s.images AS space_images,
-  rp.display_name AS renter_display_name,
-  ru.full_name AS renter_full_name,
-  ru.phone AS renter_phone
+  rp.profile_name AS renter_profile_name,
+  rp.phone AS renter_phone
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
 JOIN profiles rp ON rp.id = b.renter_id
-JOIN users ru ON ru.id = rp.user_id
 WHERE b.id = $1 AND s.owner_id = $2
 `
 
@@ -204,8 +195,7 @@ func (s *SQLStore) GetOwnerBookingDetail(ctx context.Context, id uuid.UUID, owne
 		&r.SpaceName,
 		&r.SpaceLocation,
 		pq.Array(&r.SpaceImages),
-		&r.RenterDisplayName,
-		&r.RenterFullName,
+		&r.RenterProfileName,
 		&r.RenterPhone,
 	)
 	return r, err
@@ -232,11 +222,9 @@ func (s *SQLStore) GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (Adm
 		&r.SpaceName,
 		&r.SpaceLocation,
 		pq.Array(&r.SpaceImages),
-		&r.RenterDisplayName,
-		&r.RenterFullName,
+		&r.RenterProfileName,
 		&r.RenterPhone,
-		&r.OwnerDisplayName,
-		&r.OwnerFullName,
+		&r.OwnerProfileName,
 	)
 	return r, err
 }
