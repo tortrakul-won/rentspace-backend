@@ -255,6 +255,7 @@ type AdminBookingDetailResponse struct {
 	SpaceImages       []string `json:"space_images"`
 	RenterProfileName string `json:"renter_profile_name"`
 	RenterPhone       string `json:"renter_phone"`
+	RenterIsJuristic  bool   `json:"renter_is_juristic"`
 	OwnerProfileName  string `json:"owner_profile_name"`
 }
 
@@ -275,6 +276,7 @@ func adminBookingDetailToResponse(r store.AdminBookingDetailRow) AdminBookingDet
 		SpaceLocation:     r.SpaceLocation,
 		SpaceImages:       r.SpaceImages,
 		RenterProfileName: r.RenterProfileName,
+		RenterIsJuristic:  r.RenterIsJuristic,
 		OwnerProfileName:  r.OwnerProfileName,
 	}
 	if r.CancelReason.Valid {
@@ -313,6 +315,7 @@ type OwnerBookingDetailResponse struct {
 	SpaceImages       []string `json:"space_images"`
 	RenterProfileName string `json:"renter_profile_name"`
 	RenterPhone       string `json:"renter_phone"`
+	RenterIsJuristic  bool   `json:"renter_is_juristic"`
 }
 
 func ownerBookingDetailToResponse(r store.OwnerBookingDetailRow) OwnerBookingDetailResponse {
@@ -331,6 +334,7 @@ func ownerBookingDetailToResponse(r store.OwnerBookingDetailRow) OwnerBookingDet
 		SpaceLocation:     r.SpaceLocation,
 		SpaceImages:       r.SpaceImages,
 		RenterProfileName: r.RenterProfileName,
+		RenterIsJuristic:  r.RenterIsJuristic,
 	}
 	if r.CancelReason.Valid {
 		resp.CancelReason = &r.CancelReason.String

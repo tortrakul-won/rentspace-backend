@@ -169,6 +169,23 @@ type Booking struct {
 	ProcessExpiresAt sql.NullTime   `json:"process_expires_at"`
 	SlipUrl          sql.NullString `json:"slip_url"`
 	RefCode          string         `json:"ref_code"`
+	VatRatePct       int32          `json:"vat_rate_pct"`
+	RenterAcceptedAt sql.NullTime   `json:"renter_accepted_at"`
+	OwnerAcceptedAt  sql.NullTime   `json:"owner_accepted_at"`
+}
+
+type BookingDocument struct {
+	ID        uuid.UUID `json:"id"`
+	BookingID uuid.UUID `json:"booking_id"`
+	DocType   string    `json:"doc_type"`
+	DocNumber string    `json:"doc_number"`
+	IssuedAt  time.Time `json:"issued_at"`
+}
+
+type DocumentSequence struct {
+	DocType string `json:"doc_type"`
+	Year    int32  `json:"year"`
+	NextSeq int32  `json:"next_seq"`
 }
 
 type Notification struct {

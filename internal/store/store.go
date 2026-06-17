@@ -105,6 +105,7 @@ type AdminBookingDetailRow struct {
 	SpaceImages         []string       `json:"space_images"`
 	RenterProfileName   string `json:"renter_profile_name"`
 	RenterPhone         string `json:"renter_phone"`
+	RenterIsJuristic    bool   `json:"renter_is_juristic"`
 	OwnerProfileName    string `json:"owner_profile_name"`
 }
 
@@ -116,6 +117,7 @@ SELECT
   s.name AS space_name, s.location AS space_location, s.images AS space_images,
   renter_p.profile_name AS renter_profile_name,
   renter_p.phone AS renter_phone,
+  renter_p.is_juristic AS renter_is_juristic,
   owner_p.profile_name AS owner_profile_name
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
@@ -164,6 +166,7 @@ type OwnerBookingDetailRow struct {
 	SpaceImages       []string       `json:"space_images"`
 	RenterProfileName string `json:"renter_profile_name"`
 	RenterPhone       string `json:"renter_phone"`
+	RenterIsJuristic  bool   `json:"renter_is_juristic"`
 }
 
 const getOwnerBookingDetail = `
@@ -172,7 +175,8 @@ SELECT
   b.status, b.created_at, b.updated_at, b.cancel_reason, b.ref_code,
   s.name AS space_name, s.location AS space_location, s.images AS space_images,
   rp.profile_name AS renter_profile_name,
-  rp.phone AS renter_phone
+  rp.phone AS renter_phone,
+  rp.is_juristic AS renter_is_juristic
 FROM bookings b
 JOIN spaces s ON s.id = b.space_id
 JOIN profiles rp ON rp.id = b.renter_id
@@ -199,6 +203,7 @@ func (s *SQLStore) GetOwnerBookingDetail(ctx context.Context, id uuid.UUID, owne
 		pq.Array(&r.SpaceImages),
 		&r.RenterProfileName,
 		&r.RenterPhone,
+		&r.RenterIsJuristic,
 	)
 	return r, err
 }
@@ -226,6 +231,7 @@ func (s *SQLStore) GetAdminBookingDetail(ctx context.Context, id uuid.UUID) (Adm
 		pq.Array(&r.SpaceImages),
 		&r.RenterProfileName,
 		&r.RenterPhone,
+		&r.RenterIsJuristic,
 		&r.OwnerProfileName,
 	)
 	return r, err
