@@ -85,7 +85,12 @@ type mockStore struct {
 	getOwnerBookingDetail                 func(ctx context.Context, id uuid.UUID, ownerProfileID uuid.UUID) (store.OwnerBookingDetailRow, error)
 	getRenterBookingDetail                func(ctx context.Context, id uuid.UUID, renterProfileID uuid.UUID) (store.RenterBookingDetailRow, error)
 	setUserAdmin                          func(ctx context.Context, arg store.SetUserAdminParams) (store.User, error)
-	supersedeNotificationsByBooking       func(ctx context.Context, bookingID uuid.UUID) error
+	supersedeNotificationsByBooking       func(ctx context.Context, bookingID uuid.NullUUID) error
+	nextDocumentSequence                  func(ctx context.Context, arg store.NextDocumentSequenceParams) (int32, error)
+	createBookingDocument                 func(ctx context.Context, arg store.CreateBookingDocumentParams) (store.BookingDocument, error)
+	getBookingDocument                    func(ctx context.Context, arg store.GetBookingDocumentParams) (store.BookingDocument, error)
+	listBookingDocuments                  func(ctx context.Context, bookingID uuid.UUID) ([]store.BookingDocument, error)
+	setOwnerAcceptedAt                    func(ctx context.Context, id uuid.UUID) (store.Booking, error)
 }
 
 func (m *mockStore) ExecTx(ctx context.Context, fn func(store.Querier) error) error {
@@ -487,11 +492,41 @@ func (m *mockStore) GetRenterBookingDetail(ctx context.Context, id uuid.UUID, re
 	return store.RenterBookingDetailRow{}, errors.New("not implemented")
 }
 
-func (m *mockStore) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.UUID) error {
+func (m *mockStore) SupersedeNotificationsByBooking(ctx context.Context, bookingID uuid.NullUUID) error {
 	if m.supersedeNotificationsByBooking != nil {
 		return m.supersedeNotificationsByBooking(ctx, bookingID)
 	}
 	return nil
+}
+func (m *mockStore) NextDocumentSequence(ctx context.Context, arg store.NextDocumentSequenceParams) (int32, error) {
+	if m.nextDocumentSequence != nil {
+		return m.nextDocumentSequence(ctx, arg)
+	}
+	return 1, nil
+}
+func (m *mockStore) CreateBookingDocument(ctx context.Context, arg store.CreateBookingDocumentParams) (store.BookingDocument, error) {
+	if m.createBookingDocument != nil {
+		return m.createBookingDocument(ctx, arg)
+	}
+	return store.BookingDocument{}, nil
+}
+func (m *mockStore) GetBookingDocument(ctx context.Context, arg store.GetBookingDocumentParams) (store.BookingDocument, error) {
+	if m.getBookingDocument != nil {
+		return m.getBookingDocument(ctx, arg)
+	}
+	return store.BookingDocument{}, errors.New("not implemented")
+}
+func (m *mockStore) ListBookingDocuments(ctx context.Context, bookingID uuid.UUID) ([]store.BookingDocument, error) {
+	if m.listBookingDocuments != nil {
+		return m.listBookingDocuments(ctx, bookingID)
+	}
+	return nil, nil
+}
+func (m *mockStore) SetOwnerAcceptedAt(ctx context.Context, id uuid.UUID) (store.Booking, error) {
+	if m.setOwnerAcceptedAt != nil {
+		return m.setOwnerAcceptedAt(ctx, id)
+	}
+	return store.Booking{}, nil
 }
 
 // fixtures

@@ -87,6 +87,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		"max_booking_minutes",
 		"platform_fee_pct",
 		"max_pending_bookings_per_renter",
+		"vat_rate_pct",
 	})
 	if err != nil {
 		ServerError(w, r, err)
@@ -109,6 +110,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	maxBookingMins, _ := strconv.Atoi(configs["max_booking_minutes"])
 	platformFeePct, _ := strconv.Atoi(configs["platform_fee_pct"])
 	maxPendingCap, _ := strconv.Atoi(configs["max_pending_bookings_per_renter"])
+	vatRatePct, _ := strconv.Atoi(configs["vat_rate_pct"])
 
 	var headcount *int32
 	if body.Headcount != nil {
@@ -188,6 +190,7 @@ func (h *BookingsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			Notes:       sqlNotes,
 			ExpiresAt:   sql.NullTime{Time: proposal.ExpiresAt, Valid: true},
 			RefCode:     generateRefCode(),
+			VatRatePct:  int32(vatRatePct),
 		})
 		if err != nil {
 			return err

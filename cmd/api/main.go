@@ -56,7 +56,7 @@ func main() {
 	defer db.Close()
 
 	queries := store.NewStore(db)
-	router := api.NewRouter(queries, cfg.JWTSecret, cfg.CORSOrigins)
+	router := api.NewRouter(queries, cfg.JWTSecret, cfg.CORSOrigins, cfg.GotenbergURL)
 
 	// Background worker: auto-complete confirmed bookings past end_time,
 	// auto-cancel expired pending bookings (expires_at <= NOW()).

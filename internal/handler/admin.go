@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"rentspace/backend/internal/document"
 	"rentspace/backend/internal/hub"
 	"rentspace/backend/internal/middleware"
 	"rentspace/backend/internal/store"
@@ -125,6 +126,19 @@ func (h *AdminHandler) Approve(w http.ResponseWriter, r *http.Request) {
 				Payload:   cp,
 				BookingID: uuid.NullUUID{UUID: cb.ID, Valid: true},
 			})
+		}
+
+		// Mint document numbers for all applicable doc types
+		renter, err := q.GetProfileByID(r.Context(), booking.RenterID)
+		if err != nil {
+			return err
+		}
+		ownerProfile, err := q.GetProfileByID(r.Context(), sp.OwnerID)
+		if err != nil {
+			return err
+		}
+		if err := document.MintDocumentNumbers(r.Context(), q, updated, renter, ownerProfile); err != nil {
+			return err
 		}
 
 		return nil

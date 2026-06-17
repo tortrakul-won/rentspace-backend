@@ -1,0 +1,63 @@
+{{template "base"}}
+
+<div class="header">
+  <div class="platform-name">{{.Platform.NameTH}}</div>
+  <div class="doc-title">ใบแจ้งยอดการโอนเงิน</div>
+  <div class="doc-subtitle">Payout Statement</div>
+</div>
+
+<div class="doc-number">เลขที่ / No.: {{.DocNumber}} &nbsp;|&nbsp; วันที่ / Date: {{.IssuedAt}}</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">จาก / From (แพลตฟอร์ม)</div>
+  <table>
+    <tr><td class="label">ชื่อ / Name</td><td><strong>{{.Platform.NameTH}}</strong></td></tr>
+    <tr><td class="label"></td><td>{{.Platform.NameEN}}</td></tr>
+    <tr><td class="label">เลขนิติบุคคล / Tax ID</td><td>{{.Platform.TaxID}}</td></tr>
+    <tr><td class="label">ที่อยู่ / Address</td><td>{{.Platform.Address}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">ถึง / To (เจ้าของพื้นที่)</div>
+  <table>
+    <tr><td class="label">ชื่อ / Name</td><td><strong>{{.Owner.LegalNameTH}}</strong></td></tr>
+    {{if .Owner.LegalNameEN}}<tr><td class="label"></td><td>{{.Owner.LegalNameEN}}</td></tr>{{end}}
+    {{if .Owner.TaxID}}<tr><td class="label">เลขผู้เสียภาษี / Tax ID</td><td>{{.Owner.TaxID}}</td></tr>{{end}}
+    <tr><td class="label">ที่อยู่ / Address</td><td>{{.Owner.Address}}</td></tr>
+    <tr><td class="label">โทรศัพท์ / Phone</td><td>{{.Owner.Phone}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">รายละเอียดการจอง / Booking</div>
+  <table>
+    <tr><td class="label">รหัสการจอง / Ref.</td><td>{{.Booking.RefCode}}</td></tr>
+    <tr><td class="label">พื้นที่ / Space</td><td>{{.Space.Name}}</td></tr>
+    <tr><td class="label">ช่วงเวลา / Period</td><td>{{.StartTime}} – {{.EndTime}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">รายละเอียดยอดเงิน / Payout Breakdown</div>
+  <table class="amount-table">
+    <tr><th>รายการ / Item</th><th class="right">จำนวนเงิน (บาท)</th></tr>
+    <tr><td>ค่าเช่าที่ได้รับ (ไม่รวม VAT)</td><td class="right">{{.TotalPriceExVAT}}</td></tr>
+    <tr><td>หักค่าบริการแพลตฟอร์ม / Platform Fee</td><td class="right">({{.PlatformFee}})</td></tr>
+    {{if .WHTLine}}
+    <tr><td>หักภาษีหัก ณ ที่จ่าย {{.WHTRate}}% / WHT Deducted</td><td class="right">({{.WHTAmount}})</td></tr>
+    {{end}}
+    <tr class="total-row"><td>ยอดโอนให้เจ้าของ / Net Payout</td><td class="right">{{.NetPayout}}</td></tr>
+  </table>
+  {{if .WHTLine}}
+  <div class="highlight" style="margin-top:3mm;">
+    <strong>หมายเหตุ:</strong> ภาษีหัก ณ ที่จ่าย {{.WHTAmount}} บาท จะถูกนำส่งกรมสรรพากรโดยแพลตฟอร์ม — ดูใบ WHT แนบ
+  </div>
+  {{end}}
+</div>
+
+<div class="footer">
+  ใบแจ้งยอดการโอนเงิน | เลขที่ {{.DocNumber}} | ออกโดย {{.Platform.NameTH}}
+</div>
+</body>
+</html>

@@ -26,6 +26,7 @@ type Querier interface {
 	CountSpacesExcludeUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	CountUnreadNotifications(ctx context.Context, profileID uuid.UUID) (int64, error)
 	CreateBooking(ctx context.Context, arg CreateBookingParams) (Booking, error)
+	CreateBookingDocument(ctx context.Context, arg CreateBookingDocumentParams) (BookingDocument, error)
 	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
 	CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error)
 	CreateSpace(ctx context.Context, arg CreateSpaceParams) (Space, error)
@@ -35,6 +36,7 @@ type Querier interface {
 	DeleteSpaceAvailability(ctx context.Context, spaceID uuid.UUID) error
 	DeleteSpaceBlock(ctx context.Context, arg DeleteSpaceBlockParams) error
 	GetBookingByID(ctx context.Context, id uuid.UUID) (Booking, error)
+	GetBookingDocument(ctx context.Context, arg GetBookingDocumentParams) (BookingDocument, error)
 	GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error)
 	GetProfileByUserAndRole(ctx context.Context, arg GetProfileByUserAndRoleParams) (Profile, error)
 	GetProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]Profile, error)
@@ -45,6 +47,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	ListActiveBookingsInRange(ctx context.Context, arg ListActiveBookingsInRangeParams) ([]Booking, error)
+	ListBookingDocuments(ctx context.Context, bookingID uuid.UUID) ([]BookingDocument, error)
 	ListBookingsByOwner(ctx context.Context, ownerID uuid.UUID) ([]Booking, error)
 	ListBookingsByOwnerEnriched(ctx context.Context, ownerID uuid.UUID) ([]ListBookingsByOwnerEnrichedRow, error)
 	ListBookingsByRenter(ctx context.Context, renterID uuid.UUID) ([]Booking, error)
@@ -64,6 +67,8 @@ type Querier interface {
 	ListSpacesPaginatedExcludeUser(ctx context.Context, arg ListSpacesPaginatedExcludeUserParams) ([]Space, error)
 	MarkAllNotificationsRead(ctx context.Context, profileID uuid.UUID) error
 	MarkNotificationRead(ctx context.Context, arg MarkNotificationReadParams) error
+	NextDocumentSequence(ctx context.Context, arg NextDocumentSequenceParams) (int32, error)
+	SetOwnerAcceptedAt(ctx context.Context, id uuid.UUID) (Booking, error)
 	SetSpaceActive(ctx context.Context, arg SetSpaceActiveParams) (Space, error)
 	SetSystemConfig(ctx context.Context, arg SetSystemConfigParams) error
 	SetUserAdmin(ctx context.Context, arg SetUserAdminParams) (User, error)
