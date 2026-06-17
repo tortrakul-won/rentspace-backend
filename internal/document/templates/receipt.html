@@ -1,0 +1,72 @@
+{{template "base"}}
+
+<div class="header">
+  <div class="platform-name">{{.Owner.LegalNameTH}}</div>
+  {{if .Owner.LegalNameEN}}<div style="font-size:13pt; color:#555">{{.Owner.LegalNameEN}}</div>{{end}}
+  <div class="doc-title">{{if .IsTaxInvoice}}ใบกำกับภาษี / Tax Invoice{{else}}ใบเสร็จรับเงิน / Receipt{{end}}</div>
+  {{if .IsTaxInvoice}}<div class="doc-subtitle">ต้นฉบับ (Original)</div>{{end}}
+</div>
+
+<div class="doc-number">เลขที่ / No.: {{.DocNumber}} &nbsp;|&nbsp; วันที่ / Date: {{.IssuedAt}}</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">ผู้{{if .IsTaxInvoice}}ออกใบกำกับ{{else}}รับเงิน{{end}} / Issued By</div>
+  <table>
+    <tr><td class="label">ชื่อ / Name</td><td><strong>{{.Owner.LegalNameTH}}</strong></td></tr>
+    {{if .Owner.TaxID}}<tr><td class="label">เลขผู้เสียภาษี / Tax ID</td><td>{{.Owner.TaxID}}</td></tr>{{end}}
+    {{if .IsTaxInvoice}}<tr><td class="label">สาขา / Branch</td><td>{{if .Owner.BranchNumber}}{{.Owner.BranchNumber}}{{else}}สำนักงานใหญ่ (00000){{end}}</td></tr>{{end}}
+    <tr><td class="label">ที่อยู่ / Address</td><td>{{.Owner.Address}}</td></tr>
+    <tr><td class="label">โทรศัพท์ / Phone</td><td>{{.Owner.Phone}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">ผู้ชำระเงิน / Bill To</div>
+  <table>
+    <tr><td class="label">ชื่อ / Name</td><td><strong>{{.Renter.LegalNameTH}}</strong></td></tr>
+    {{if .Renter.TaxID}}<tr><td class="label">เลขผู้เสียภาษี / Tax ID</td><td>{{.Renter.TaxID}}</td></tr>{{end}}
+    <tr><td class="label">ที่อยู่ / Address</td><td>{{.Renter.Address}}</td></tr>
+    <tr><td class="label">โทรศัพท์ / Phone</td><td>{{.Renter.Phone}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="page-break-inside: avoid; break-inside: avoid;">
+  <div class="section-title">รายการ / Items</div>
+  <table class="amount-table">
+    <tr>
+      <th>รายการ / Description</th>
+      <th class="right">จำนวนเงิน / Amount (บาท)</th>
+    </tr>
+    <tr>
+      <td>
+        เช่าพื้นที่: {{.Space.Name}}<br>
+        <span style="font-size:12pt; color:#555">{{.StartTime}} – {{.EndTime}}</span><br>
+        <span style="font-size:12pt; color:#555">รหัสการจอง: {{.Booking.RefCode}}</span>
+      </td>
+      <td class="right">{{.TotalPriceExVAT}}</td>
+    </tr>
+    {{if .IsTaxInvoice}}
+    <tr><td>ภาษีมูลค่าเพิ่ม {{.VATRate}}%</td><td class="right">{{.VATAmount}}</td></tr>
+    {{end}}
+    <tr class="total-row">
+      <td>รวมทั้งสิ้น / Total</td>
+      <td class="right">{{.GrandTotal}}</td>
+    </tr>
+  </table>
+  {{if .IsTaxInvoice}}
+  <p class="note">* ราคาไม่รวมภาษีมูลค่าเพิ่ม (Ex-VAT) / VAT {{.VATRate}}% included</p>
+  {{end}}
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <table>
+    <tr><td class="label">วิธีชำระ / Payment Method</td><td>PromptPay</td></tr>
+    <tr><td class="label">วันที่ชำระ / Paid Date</td><td>{{.IssuedAt}}</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  {{if .IsTaxInvoice}}ใบกำกับภาษี{{else}}ใบเสร็จรับเงิน{{end}} | เลขที่ {{.DocNumber}} | ออกโดย {{.Owner.LegalNameTH}} ผ่านระบบ {{.Platform.NameTH}}
+</div>
+</body>
+</html>

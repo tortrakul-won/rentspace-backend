@@ -1,6 +1,11 @@
 -- name: CreateBooking :one
-INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee, headcount, notes, expires_at, ref_code)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO bookings (space_id, renter_id, start_time, end_time, total_price, platform_fee, headcount, notes, expires_at, ref_code, vat_rate_pct, renter_accepted_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+RETURNING *;
+
+-- name: SetOwnerAcceptedAt :one
+UPDATE bookings SET owner_accepted_at = NOW(), updated_at = NOW()
+WHERE id = $1
 RETURNING *;
 
 -- name: GetBookingByID :one

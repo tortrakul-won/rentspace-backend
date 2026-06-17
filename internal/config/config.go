@@ -11,15 +11,16 @@ type Config struct {
 	DatabaseURL    string
 	JWTSecret      string
 	CORSOrigins    []string
+	GotenbergURL   string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:        getEnv("SERVER_PORT", "8080"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		// TODO: remove fallback before production — CORS_ALLOWED_ORIGINS should be required
-		CORSOrigins: parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
+		Port:         getEnv("SERVER_PORT", "8080"),
+		DatabaseURL:  os.Getenv("DATABASE_URL"),
+		JWTSecret:    os.Getenv("JWT_SECRET"),
+		CORSOrigins:  parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
+		GotenbergURL: getEnv("GOTENBERG_URL", "http://localhost:3000"),
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")

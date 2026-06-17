@@ -13,7 +13,7 @@ import (
 	"rentspace/backend/internal/store"
 )
 
-func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handler {
+func NewRouter(q store.Store, jwtSecret string, corsOrigins []string, gotenbergURL string) http.Handler {
 	h := hub.New()
 	r := chi.NewRouter()
 
@@ -91,6 +91,12 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string) http.Handl
 			r.Patch("/bookings/{id}/status", bookingsHandler.UpdateStatus)
 			// GET   /spaces/{id}/bookings — list all bookings for a space
 			r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)
+
+			documentsHandler := handler.NewDocumentsHandler(q, gotenbergURL)
+			// GET /bookings/{id}/documents           — list available documents for a booking
+			r.Get("/bookings/{id}/documents", documentsHandler.GetBookingDocumentList)
+			// GET /bookings/{id}/documents/{docType} — download a specific document as PDF
+			r.Get("/bookings/{id}/documents/{docType}", documentsHandler.GetDocument)
 
 			notificationsHandler := handler.NewNotificationsHandler(q, h)
 			// GET   /notifications/stream  — SSE stream of new notifications for the active profile

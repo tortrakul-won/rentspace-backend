@@ -1,0 +1,88 @@
+{{template "base"}}
+
+<div class="header">
+  <div class="platform-name">{{.Platform.NameTH}}</div>
+  <div class="doc-title">สัญญาเช่าพื้นที่</div>
+  <div class="doc-subtitle">Rental Agreement</div>
+</div>
+
+<div class="doc-number">เลขที่ / No.: {{.DocNumber}} &nbsp;|&nbsp; วันที่ / Date: {{.IssuedAt}}</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">คู่สัญญา / Parties</div>
+  <table>
+    <tr>
+      <td class="label">ผู้ให้เช่า (เจ้าของพื้นที่)</td>
+      <td><strong>{{.Owner.LegalNameTH}}</strong>{{if .Owner.LegalNameEN}}<br><span style="color:#555">{{.Owner.LegalNameEN}}</span>{{end}}<br>
+        {{if .Owner.TaxID}}เลขประจำตัวผู้เสียภาษี: {{.Owner.TaxID}}<br>{{end}}
+        โทรศัพท์: {{.Owner.Phone}}<br>
+        ที่อยู่: {{.Owner.Address}}
+      </td>
+    </tr>
+    <tr>
+      <td class="label">ผู้เช่า</td>
+      <td><strong>{{.Renter.LegalNameTH}}</strong>{{if .Renter.LegalNameEN}}<br><span style="color:#555">{{.Renter.LegalNameEN}}</span>{{end}}<br>
+        {{if .Renter.TaxID}}เลขประจำตัวผู้เสียภาษี: {{.Renter.TaxID}}<br>{{end}}
+        โทรศัพท์: {{.Renter.Phone}}<br>
+        ที่อยู่: {{.Renter.Address}}
+      </td>
+    </tr>
+    <tr>
+      <td class="label">ผู้ให้บริการแพลตฟอร์ม</td>
+      <td><strong>{{.Platform.NameTH}}</strong><br>
+        {{.Platform.NameEN}}<br>
+        เลขนิติบุคคล: {{.Platform.TaxID}}<br>
+        ที่อยู่: {{.Platform.Address}}
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">รายละเอียดการเช่า / Booking Details</div>
+  <table>
+    <tr><td class="label">รหัสการจอง / Ref.</td><td>{{.Booking.RefCode}}</td></tr>
+    <tr><td class="label">ชื่อพื้นที่ / Space</td><td>{{.Space.Name}}</td></tr>
+    <tr><td class="label">สถานที่ / Location</td><td>{{.Space.Location}}</td></tr>
+    <tr><td class="label">วันและเวลาเริ่ม / Start</td><td>{{.StartTime}}</td></tr>
+    <tr><td class="label">วันและเวลาสิ้นสุด / End</td><td>{{.EndTime}}</td></tr>
+    {{if .Headcount}}<tr><td class="label">จำนวนผู้เข้าร่วม / Headcount</td><td>{{.Headcount}} คน</td></tr>{{end}}
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">ค่าเช่าและการชำระเงิน / Pricing</div>
+  <table class="amount-table">
+    <tr><th>รายการ</th><th class="right">จำนวนเงิน (บาท)</th></tr>
+    <tr><td>ค่าเช่าพื้นที่</td><td class="right">{{.TotalPriceExVAT}}</td></tr>
+    {{if .VATLine}}<tr><td>ภาษีมูลค่าเพิ่ม {{.VATRate}}%</td><td class="right">{{.VATAmount}}</td></tr>{{end}}
+    <tr class="total-row"><td>รวมทั้งสิ้น / Total</td><td class="right">{{.GrandTotal}}</td></tr>
+  </table>
+  <p class="note">* ชำระผ่านระบบ {{.Platform.NameTH}} เรียบร้อยแล้ว</p>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">เงื่อนไขและข้อตกลง / Terms</div>
+  <ol style="padding-left: 5mm; font-size: 13pt;">
+    <li>ผู้เช่าตกลงใช้พื้นที่ตามวัตถุประสงค์ที่ระบุไว้เท่านั้น</li>
+    <li>ผู้เช่าต้องดูแลรักษาพื้นที่ให้อยู่ในสภาพเดิม หากเกิดความเสียหายผู้เช่าต้องรับผิดชอบ</li>
+    <li>ห้ามนำสิ่งมีชีวิต สารเคมีอันตราย หรือวัสดุที่เป็นอันตรายเข้าในพื้นที่</li>
+    <li>ผู้ให้เช่าสงวนสิทธิ์ยกเลิกสัญญาหากพบการฝ่าฝืนข้อตกลง</li>
+    <li>สัญญาฉบับนี้มีผลผูกพันทันทีที่ผู้เช่าทำการจองผ่านแพลตฟอร์มและได้รับการยืนยัน</li>
+    <li>การยืนยันผ่านระบบอิเล็กทรอนิกส์ถือเป็นลายมือชื่อตามพระราชบัญญัติว่าด้วยธุรกรรมทางอิเล็กทรอนิกส์ พ.ศ. 2544</li>
+  </ol>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">การยืนยันสัญญา / Acceptance Log</div>
+  <table>
+    <tr><td class="label">ผู้เช่า / Renter</td><td>{{.RenterAcceptedAt}}</td></tr>
+    {{if .OwnerAcceptedAt}}<tr><td class="label">ผู้ให้เช่า / Owner</td><td>{{.OwnerAcceptedAt}}</td></tr>{{end}}
+  </table>
+</div>
+
+<div class="footer">
+  สัญญาเช่าพื้นที่ผ่านระบบ {{.Platform.NameTH}} | เลขที่ {{.DocNumber}} | {{.IssuedAt}}
+</div>
+</body>
+</html>

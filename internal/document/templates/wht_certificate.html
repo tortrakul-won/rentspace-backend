@@ -1,0 +1,78 @@
+{{template "base"}}
+
+<div class="header">
+  <div class="platform-name">{{.Platform.NameTH}}</div>
+  <div class="doc-title">หนังสือรับรองการหักภาษี ณ ที่จ่าย</div>
+  <div class="doc-subtitle">Withholding Tax Certificate</div>
+  <div style="font-size:12pt; color:#555; margin-top:1mm;">ตามมาตรา 50 ทวิ แห่งประมวลรัษฎากร</div>
+</div>
+
+<div class="doc-number">เลขที่ / No.: {{.DocNumber}} &nbsp;|&nbsp; วันที่ / Date: {{.IssuedAt}}</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">ผู้จ่ายเงิน / Payer</div>
+  <table>
+    <tr><td class="label">ชื่อ / Name</td><td><strong>{{.Platform.NameTH}}</strong></td></tr>
+    <tr><td class="label"></td><td>{{.Platform.NameEN}}</td></tr>
+    <tr><td class="label">เลขนิติบุคคล / Tax ID</td><td>{{.Platform.TaxID}}</td></tr>
+    <tr><td class="label">สาขา / Branch</td><td>{{.Platform.BranchNumber}}</td></tr>
+    <tr><td class="label">ที่อยู่ / Address</td><td>{{.Platform.Address}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">ผู้ถูกหักภาษี / Payee (Owner)</div>
+  <table>
+    <tr><td class="label">ชื่อ / Name</td><td><strong>{{.Owner.LegalNameTH}}</strong></td></tr>
+    {{if .Owner.LegalNameEN}}<tr><td class="label"></td><td>{{.Owner.LegalNameEN}}</td></tr>{{end}}
+    {{if .Owner.TaxID}}<tr><td class="label">เลขผู้เสียภาษี / Tax ID</td><td>{{.Owner.TaxID}}</td></tr>{{end}}
+    <tr><td class="label">ที่อยู่ / Address</td><td>{{.Owner.Address}}</td></tr>
+  </table>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <div class="section-title">รายละเอียดการหักภาษี / WHT Details</div>
+  <table class="amount-table">
+    <tr>
+      <th>ประเภทเงินได้</th>
+      <th>วันที่จ่าย</th>
+      <th class="right">จำนวนเงินที่จ่าย (บาท)</th>
+      <th class="right">อัตรา</th>
+      <th class="right">ภาษีที่หัก (บาท)</th>
+    </tr>
+    <tr>
+      <td>ค่าบริการตามมาตรา 40(8)</td>
+      <td>{{.IssuedAt}}</td>
+      <td class="right">{{.OwnerPayout}}</td>
+      <td class="right">{{.WHTRate}}%</td>
+      <td class="right">{{.WHTAmount}}</td>
+    </tr>
+    <tr class="total-row">
+      <td colspan="4">รวมภาษีที่หัก / Total WHT</td>
+      <td class="right">{{.WHTAmount}}</td>
+    </tr>
+  </table>
+  <p class="note">อ้างอิงรหัสการจอง: {{.Booking.RefCode}}</p>
+</div>
+
+<div class="section" style="break-inside: avoid; page-break-inside: avoid;">
+  <table>
+    <tr><td class="label">วิธีนำส่ง</td><td>&#9745; หัก ณ ที่จ่าย</td></tr>
+  </table>
+</div>
+
+<div class="signature-block">
+  <div class="signature-box">
+    <div class="signature-line">
+      <div>ลายมือชื่อผู้จ่ายเงิน</div>
+      <div style="color:#555; font-size:12pt;">{{.Platform.NameTH}}</div>
+      <div style="color:#555; font-size:12pt;">วันที่: {{.IssuedAt}}</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  หนังสือรับรองการหักภาษี ณ ที่จ่าย | เลขที่ {{.DocNumber}} | {{.Platform.NameTH}}
+</div>
+</body>
+</html>
