@@ -537,6 +537,10 @@ var (
 	testSecret    = "test-secret"
 )
 
+func (m *mockStore) SetBookingSlipURL(ctx context.Context, id uuid.UUID, slipURL string) error {
+	return nil
+}
+
 func stubUser() store.User {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.MinCost)
 	return store.User{

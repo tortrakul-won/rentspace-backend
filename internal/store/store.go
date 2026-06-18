@@ -26,6 +26,8 @@ type Store interface {
 	GetOwnerBookingDetail(ctx context.Context, id uuid.UUID, ownerProfileID uuid.UUID) (OwnerBookingDetailRow, error)
 	// GetRenterBookingDetail returns a booking enriched with owner/space info, scoped to the renter.
 	GetRenterBookingDetail(ctx context.Context, id uuid.UUID, renterProfileID uuid.UUID) (RenterBookingDetailRow, error)
+	// SetBookingSlipURL stores the public R2 URL of the uploaded payment slip.
+	SetBookingSlipURL(ctx context.Context, id uuid.UUID, slipURL string) error
 }
 
 // SQLStore is the production implementation backed by *sql.DB.
@@ -303,4 +305,12 @@ func (s *SQLStore) GetRenterBookingDetail(ctx context.Context, id uuid.UUID, ren
 		&r.OwnerLineID,
 	)
 	return r, err
+}
+
+func (s *SQLStore) SetBookingSlipURL(ctx context.Context, id uuid.UUID, slipURL string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE bookings SET slip_url = $2, updated_at = NOW() WHERE id = $1`,
+		id, slipURL,
+	)
+	return err
 }
