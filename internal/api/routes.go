@@ -10,10 +10,11 @@ import (
 	"rentspace/backend/internal/handler"
 	"rentspace/backend/internal/hub"
 	appMiddleware "rentspace/backend/internal/middleware"
+	"rentspace/backend/internal/storage"
 	"rentspace/backend/internal/store"
 )
 
-func NewRouter(q store.Store, jwtSecret string, corsOrigins []string, gotenbergURL string) http.Handler {
+func NewRouter(q store.Store, jwtSecret string, corsOrigins []string, gotenbergURL string, r2 *storage.R2Client) http.Handler {
 	h := hub.New()
 	r := chi.NewRouter()
 
@@ -91,6 +92,14 @@ func NewRouter(q store.Store, jwtSecret string, corsOrigins []string, gotenbergU
 			r.Patch("/bookings/{id}/status", bookingsHandler.UpdateStatus)
 			// GET   /spaces/{id}/bookings — list all bookings for a space
 			r.Get("/spaces/{id}/bookings", bookingsHandler.ListBySpace)
+
+			uploadsHandler := handler.NewUploadsHandler(q, r2)
+			// POST /uploads/slip-presign  — get presigned R2 URL for slip upload (renter only)
+			r.Post("/uploads/slip-presign", uploadsHandler.PresignSlipUpload)
+			// POST   /uploads/photo-presign — get presigned R2 URL for space photo upload (owner only)
+			r.Post("/uploads/photo-presign", uploadsHandler.PresignPhotoUpload)
+			// DELETE /uploads/photo        — delete an uploaded space photo from R2 (owner only)
+			r.Delete("/uploads/photo", uploadsHandler.DeletePhoto)
 
 			documentsHandler := handler.NewDocumentsHandler(q, gotenbergURL)
 			// GET /bookings/{id}/documents           — list available documents for a booking

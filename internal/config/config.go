@@ -12,15 +12,25 @@ type Config struct {
 	JWTSecret      string
 	CORSOrigins    []string
 	GotenbergURL   string
+	R2AccountID    string
+	R2AccessKeyID  string
+	R2SecretKey    string
+	R2Bucket       string
+	R2PublicURL    string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:         getEnv("SERVER_PORT", "8080"),
-		DatabaseURL:  os.Getenv("DATABASE_URL"),
-		JWTSecret:    os.Getenv("JWT_SECRET"),
-		CORSOrigins:  parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
-		GotenbergURL: getEnv("GOTENBERG_URL", "http://localhost:3000"),
+		Port:          getEnv("SERVER_PORT", "8080"),
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		JWTSecret:     os.Getenv("JWT_SECRET"),
+		CORSOrigins:   parseCORSOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")),
+		GotenbergURL:  getEnv("GOTENBERG_URL", "http://localhost:3000"),
+		R2AccountID:   os.Getenv("R2_ACCOUNT_ID"),
+		R2AccessKeyID: os.Getenv("R2_ACCESS_KEY_ID"),
+		R2SecretKey:   os.Getenv("R2_SECRET_ACCESS_KEY"),
+		R2Bucket:      os.Getenv("R2_BUCKET_NAME"),
+		R2PublicURL:   strings.TrimRight(os.Getenv("R2_PUBLIC_URL"), "/"),
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
