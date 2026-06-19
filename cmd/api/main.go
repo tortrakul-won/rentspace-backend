@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"rentspace/backend/internal/api"
 	"rentspace/backend/internal/config"
+	"rentspace/backend/internal/storage"
 	"rentspace/backend/internal/store"
 )
 
@@ -38,9 +39,12 @@ func runBookingWorker(ctx context.Context, q *store.SQLStore) {
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("no .env file found, using environment variables")
+	for _, f := range []string{".env.dev", ".env"} {
+		if err := godotenv.Load(f); err == nil {
+			break
+		}
 	}
+
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -56,7 +60,20 @@ func main() {
 	defer db.Close()
 
 	queries := store.NewStore(db)
-	router := api.NewRouter(queries, cfg.JWTSecret, cfg.CORSOrigins, cfg.GotenbergURL)
+
+	var r2Client *storage.R2Client
+	if cfg.R2AccountID != "" {
+		var err error
+		r2Client, err = storage.NewR2Client(cfg.R2AccountID, cfg.R2AccessKeyID, cfg.R2SecretKey, cfg.R2Bucket, cfg.R2PublicURL)
+		if err != nil {
+			log.Fatalf("r2: %v", err)
+		}
+		log.Println("r2: configured")
+	} else {
+		log.Println("r2: not configured — slip uploads disabled")
+	}
+
+	router := api.NewRouter(queries, cfg.JWTSecret, cfg.CORSOrigins, cfg.GotenbergURL, r2Client)
 
 	// Background worker: auto-complete confirmed bookings past end_time,
 	// auto-cancel expired pending bookings (expires_at <= NOW()).

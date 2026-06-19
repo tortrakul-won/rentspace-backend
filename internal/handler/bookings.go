@@ -400,8 +400,11 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 		sp, _ := q.GetSpaceByID(r.Context(), booking.SpaceID)
 
-		// Owner accepts → notify renter to upload payment slip
+		// Owner accepts → stamp timestamp + notify renter to upload payment slip
 		if next == store.BookingStatusAwaitingPayment {
+			if _, err := q.SetOwnerAcceptedAt(r.Context(), id); err != nil {
+				return err
+			}
 			payload, _ := json.Marshal(map[string]string{
 				"booking_id": updated.ID.String(),
 				"space_name": sp.Name,
@@ -471,11 +474,19 @@ func (h *BookingsHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if next == store.BookingStatusPaymentReview && body.SlipURL != "" {
+		if err := h.q.SetBookingSlipURL(r.Context(), id, body.SlipURL); err != nil {
+			ServerError(w, r, err)
+			return
+		}
+	}
+
 	JSON(w, http.StatusOK, updated)
 }
 
 type UpdateStatusRequest struct {
-	Status store.BookingStatus `json:"status"`
+	Status  store.BookingStatus `json:"status"`
+	SlipURL string              `json:"slip_url"`
 }
 
 func (h *BookingsHandler) ListMine(w http.ResponseWriter, r *http.Request) {
